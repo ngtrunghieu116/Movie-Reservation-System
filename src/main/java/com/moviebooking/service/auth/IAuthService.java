@@ -22,4 +22,6 @@ public interface IAuthService {
     void resetPassword(ResetPasswordRequest request);
 
     void verifyEmail(String token);
+
+    void resendVerificationEmail(String email);
 }

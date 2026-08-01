@@ -8,6 +8,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.moviebooking.exception.EmailNotVerifiedException;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,6 +48,16 @@ public class GlobalExceptionHandler {
                 .body(Map.of(
                         "message",
                         "Tài khoản hoặc mật khẩu không đúng."));
+    }
+
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<Map<String, String>> handleEmailNotVerified(
+            EmailNotVerifiedException ex) {
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of(
+                        "message",
+                        ex.getMessage()));
     }
 
 }

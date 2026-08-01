@@ -51,4 +51,16 @@ public class AuthController {
         // Redis blacklist token).
         return ResponseEntity.ok("Đăng xuất thành công!");
     }
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<String> verifyEmail(@RequestParam String token) {
+        authService.verifyEmail(token);
+        return ResponseEntity.ok("Xác thực email thành công! Bạn có thể đăng nhập.");
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<String> resendVerificationEmail(@RequestParam String email) {
+        authService.resendVerificationEmail(email);
+        return ResponseEntity.ok("Email xác thực đã được gửi lại thành công.");
+    }
 }

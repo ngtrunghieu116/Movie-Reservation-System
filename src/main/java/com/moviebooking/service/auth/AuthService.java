@@ -17,9 +17,13 @@ import com.moviebooking.model.enums.Gender;
 import com.moviebooking.model.enums.Role;
 import com.moviebooking.repository.PasswordResetTokenRepository;
 import com.moviebooking.repository.UserRepository;
+import com.moviebooking.model.EmailVerificationToken;
+import com.moviebooking.repository.EmailVerificationTokenRepository;
+import com.moviebooking.exception.EmailNotVerifiedException;
 import com.moviebooking.security.CustomUserDetails;
 import com.moviebooking.security.JwtService;
 import com.moviebooking.service.email.EmailService;
+import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,6 +44,7 @@ public class AuthService implements IAuthService {
     private final JwtService jwtService;
     private final EmailService emailService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
 
     @Override
     @Transactional // Đảm bảo nếu lỗi giữa chừng thì DB sẽ rollback (quay lại trạng thái cũ)
@@ -69,6 +74,30 @@ public class AuthService implements IAuthService {
                 .build();
         // 4. Lưu vào Database
         userRepository.save(newUser);
+        
+        // 5. Tạo token xác thực email và gửi
+        String token = UUID.randomUUID().toString();
+        EmailVerificationToken emailToken = EmailVerificationToken.builder()
+                .token(token)
+                .user(newUser)
+                .expiryDate(java.time.LocalDateTime.now().plusHours(24))
+                .used(false)
+                .build();
+        emailVerificationTokenRepository.save(emailToken);
+        
+        String verifyLink = "http://localhost:3000/verify-email?token=" + token;
+        
+        try {
+            emailService.sendEmail(
+                newUser.getEmail(),
+                "Xác thực tài khoản Cinemind",
+                "Chào bạn,\n\nVui lòng click vào link sau để xác thực email của bạn:\n" + verifyLink,
+                false
+            );
+        } catch(Exception e) {
+            System.err.println("Gửi email thất bại, link xác thực là: " + verifyLink);
+        }
+
         return "Đăng ký tài khoản thành công! Vui lòng kiểm tra email để xác thực.";
     }
 
@@ -84,6 +113,12 @@ public class AuthService implements IAuthService {
         // 2. Nếu mật khẩu đúng, lấy thông tin User từ Database
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại!"));
+                
+        // Kiểm tra xác thực email
+        if (Boolean.FALSE.equals(user.getEmailVerified())) {
+            throw new EmailNotVerifiedException("EMAIL_NOT_VERIFIED");
+        }
+        
         // 3. Sinh Token (Stateless)
         CustomUserDetails userDetails = new CustomUserDetails(user);
         String accessToken = jwtService.generateAccessToken(userDetails);
@@ -270,9 +305,62 @@ public class AuthService implements IAuthService {
     }
 
     @Override
+    @Transactional
     public void verifyEmail(String token) {
+        EmailVerificationToken emailToken = emailVerificationTokenRepository.findByToken(token)
+                .orElseThrow(() -> new RuntimeException("Token không tồn tại hoặc không hợp lệ."));
 
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'verifyEmail'");
+        if (emailToken.getUsed()) {
+            throw new RuntimeException("Token đã được sử dụng.");
+        }
+
+        if (emailToken.getExpiryDate().isBefore(java.time.LocalDateTime.now())) {
+            throw new RuntimeException("Token đã hết hạn.");
+        }
+
+        User user = emailToken.getUser();
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        emailToken.setUsed(true);
+        emailVerificationTokenRepository.save(emailToken);
+    }
+    
+    @Override
+    @Transactional
+    public void resendVerificationEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại!"));
+
+        if (Boolean.TRUE.equals(user.getEmailVerified())) {
+            throw new RuntimeException("Tài khoản đã được xác thực.");
+        }
+
+        // Vô hiệu hóa token cũ
+        emailVerificationTokenRepository.findByUserAndUsedFalse(user)
+                .forEach(t -> t.setUsed(true));
+
+        // Tạo token mới
+        String token = UUID.randomUUID().toString();
+        EmailVerificationToken emailToken = EmailVerificationToken.builder()
+                .token(token)
+                .user(user)
+                .expiryDate(java.time.LocalDateTime.now().plusHours(24))
+                .used(false)
+                .build();
+        emailVerificationTokenRepository.save(emailToken);
+
+        String verifyLink = "http://localhost:3000/verify-email?token=" + token;
+
+        try {
+            emailService.sendEmail(
+                user.getEmail(),
+                "Xác thực tài khoản Cinemind (Gửi lại)",
+                "Chào bạn,\n\nVui lòng click vào link sau để xác thực email của bạn:\n" + verifyLink,
+                false
+            );
+        } catch(Exception e) {
+            System.err.println("Gửi email thất bại, link xác thực là: " + verifyLink);
+        }
     }
 }
