@@ -60,4 +60,13 @@ public class GlobalExceptionHandler {
                         ex.getMessage()));
     }
 
+    // 5. Xử lý tất cả các lỗi không mong muốn khác (System Error / 500)
+    // Giúp bảo vệ hệ thống, log lỗi chi tiết ra console nhưng chỉ trả về thông báo thân thiện cho User
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleGeneralExceptions(Exception ex) {
+        ex.printStackTrace(); // Log full stack trace để dev debug
+        Map<String, String> error = new HashMap<>();
+        error.put("message", "Hệ thống gặp sự cố ngoài dự kiến. Vui lòng thử lại sau hoặc liên hệ quản trị viên!");
+        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }

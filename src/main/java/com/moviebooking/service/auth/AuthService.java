@@ -74,7 +74,7 @@ public class AuthService implements IAuthService {
                 .build();
         // 4. Lưu vào Database
         userRepository.save(newUser);
-        
+
         // 5. Tạo token xác thực email và gửi
         String token = UUID.randomUUID().toString();
         EmailVerificationToken emailToken = EmailVerificationToken.builder()
@@ -84,17 +84,16 @@ public class AuthService implements IAuthService {
                 .used(false)
                 .build();
         emailVerificationTokenRepository.save(emailToken);
-        
-        String verifyLink = "http://localhost:3000/verify-email?token=" + token;
-        
+
+        String verifyLink = "http://localhost:8080/api/auth/verify-email?token=" + token;
+
         try {
             emailService.sendEmail(
-                newUser.getEmail(),
-                "Xác thực tài khoản Cinemind",
-                "Chào bạn,\n\nVui lòng click vào link sau để xác thực email của bạn:\n" + verifyLink,
-                false
-            );
-        } catch(Exception e) {
+                    newUser.getEmail(),
+                    "Xác thực tài khoản Cinemind",
+                    "Chào bạn,\n\nVui lòng click vào link sau để xác thực email của bạn:\n" + verifyLink,
+                    false);
+        } catch (Exception e) {
             System.err.println("Gửi email thất bại, link xác thực là: " + verifyLink);
         }
 
@@ -113,12 +112,12 @@ public class AuthService implements IAuthService {
         // 2. Nếu mật khẩu đúng, lấy thông tin User từ Database
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại!"));
-                
+
         // Kiểm tra xác thực email
         if (Boolean.FALSE.equals(user.getEmailVerified())) {
-            throw new EmailNotVerifiedException("EMAIL_NOT_VERIFIED");
+            throw new EmailNotVerifiedException("Email chưa được xác thực!");
         }
-        
+
         // 3. Sinh Token (Stateless)
         CustomUserDetails userDetails = new CustomUserDetails(user);
         String accessToken = jwtService.generateAccessToken(userDetails);
@@ -255,6 +254,7 @@ public class AuthService implements IAuthService {
     }
 
     @Override
+    @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new RuntimeException("Xác nhận mật khẩu không khớp!");
@@ -271,7 +271,9 @@ public class AuthService implements IAuthService {
             throw new RuntimeException("Token đã hết hạn.");
         }
 
-        User user = resetToken.getUser();
+        User userProxy = resetToken.getUser();
+        User user = userRepository.findById(userProxy.getId())
+                .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại."));
 
         user.setPassword(
                 passwordEncoder.encode(request.getNewPassword()));
@@ -318,14 +320,16 @@ public class AuthService implements IAuthService {
             throw new RuntimeException("Token đã hết hạn.");
         }
 
-        User user = emailToken.getUser();
+        User userProxy = emailToken.getUser();
+        User user = userRepository.findById(userProxy.getId())
+                .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại."));
         user.setEmailVerified(true);
         userRepository.save(user);
 
         emailToken.setUsed(true);
         emailVerificationTokenRepository.save(emailToken);
     }
-    
+
     @Override
     @Transactional
     public void resendVerificationEmail(String email) {
@@ -350,16 +354,15 @@ public class AuthService implements IAuthService {
                 .build();
         emailVerificationTokenRepository.save(emailToken);
 
-        String verifyLink = "http://localhost:3000/verify-email?token=" + token;
+        String verifyLink = "http://localhost:8080/api/auth/verify-email?token=" + token;
 
         try {
             emailService.sendEmail(
-                user.getEmail(),
-                "Xác thực tài khoản Cinemind (Gửi lại)",
-                "Chào bạn,\n\nVui lòng click vào link sau để xác thực email của bạn:\n" + verifyLink,
-                false
-            );
-        } catch(Exception e) {
+                    user.getEmail(),
+                    "Xác thực tài khoản Cinemind (Gửi lại)",
+                    "Chào bạn,\n\nVui lòng click vào link sau để xác thực email của bạn:\n" + verifyLink,
+                    false);
+        } catch (Exception e) {
             System.err.println("Gửi email thất bại, link xác thực là: " + verifyLink);
         }
     }
