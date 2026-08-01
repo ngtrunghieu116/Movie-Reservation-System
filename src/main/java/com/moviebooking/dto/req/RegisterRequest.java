@@ -1,9 +1,11 @@
 package com.moviebooking.dto.req;
+
 import com.moviebooking.model.enums.Gender;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
 import java.time.LocalDate;
+
 @Getter
 @Setter
 public class RegisterRequest {
