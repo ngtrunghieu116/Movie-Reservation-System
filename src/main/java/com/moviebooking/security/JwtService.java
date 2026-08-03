@@ -11,6 +11,7 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.Map;
 import java.util.function.Function;
+
 @Service
 public class JwtService {
     @Value("${app.jwt.secret}")
@@ -21,16 +22,19 @@ public class JwtService {
     private long refreshExpiration;
     @Value("${app.reset-token.expiration}")
     private long resetExpiration;
+
     public String generateAccessToken(UserDetails userDetails) {
         return buildToken(Map.of(), userDetails, expiration);
     }
+
     public String generateRefreshToken(UserDetails userDetails) {
         return buildToken(Map.of(), userDetails, refreshExpiration);
     }
 
     /**
      * Sinh JWT Reset Token cho chức năng Quên Mật Khẩu.
-     * Token chứa claim "purpose" = "RESET_PASSWORD" để phân biệt với Access/Refresh Token.
+     * Token chứa claim "purpose" = "RESET_PASSWORD" để phân biệt với Access/Refresh
+     * Token.
      *
      * @param email Email của user cần reset password
      * @return JWT token string
@@ -54,23 +58,29 @@ public class JwtService {
                 .signWith(getSignInKey())
                 .compact();
     }
+
     // Kiểm tra token hợp lệ với đúng User
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String email = extractUsername(token);
         return email.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
+
     public boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
+
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
+
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         return claimsResolver.apply(extractAllClaims(token));
     }
+
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSignInKey())
@@ -78,6 +88,7 @@ public class JwtService {
                 .parseSignedClaims(token)
                 .getPayload();
     }
+
     private SecretKey getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
