@@ -38,6 +38,8 @@ public class SecurityConfig {
                                 .csrf(AbstractHttpConfigurer::disable)
                                 .authorizeHttpRequests(req -> req
                                                 .requestMatchers(WHITE_LIST_URL).permitAll()
+                                                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/genres/**").permitAll()
+                                                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                                                 .anyRequest().authenticated())
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
