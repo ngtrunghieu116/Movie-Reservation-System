@@ -51,7 +51,11 @@ public class SecurityConfig {
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
-                configuration.setAllowedOrigins(java.util.List.of(allowedOrigins.split(",")));
+                java.util.List<String> origins = java.util.Arrays.stream(allowedOrigins.split(","))
+                                .map(String::trim)
+                                .filter(s -> !s.isEmpty())
+                                .collect(java.util.stream.Collectors.toList());
+                configuration.setAllowedOrigins(origins);
                 configuration.setAllowedMethods(
                                 java.util.Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
                 configuration.setAllowedHeaders(java.util.Arrays.asList("Authorization", "Content-Type",
