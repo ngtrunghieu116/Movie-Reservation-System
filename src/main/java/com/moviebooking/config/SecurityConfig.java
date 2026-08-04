@@ -41,6 +41,7 @@ public class SecurityConfig {
                                                 .requestMatchers(WHITE_LIST_URL).permitAll()
                                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/genres/**").permitAll()
                                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/movies/**").permitAll()
+                                                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/theaters/**").permitAll()
                                                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                                                 .anyRequest().authenticated())
                                 .sessionManagement(session -> session
