@@ -28,6 +28,7 @@ public class MovieService implements IMovieService {
     private final FileStorageService fileStorageService;
 
     @Override
+    @Transactional(readOnly = true)
     public List<MovieResponse> getAllMovies(MovieStatus status, String search) {
         List<Movie> movies;
         if (status != null && search != null && !search.trim().isEmpty()) {
@@ -44,6 +45,7 @@ public class MovieService implements IMovieService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public MovieResponse getMovieById(Long id) {
         Movie movie = movieRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bộ phim với ID: " + id));
@@ -146,12 +148,14 @@ public class MovieService implements IMovieService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<MovieResponse> getNowShowingMovies() {
         return movieRepository.findByStatus(MovieStatus.NOW_SHOWING)
                 .stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<MovieResponse> getComingSoonMovies() {
         return movieRepository.findByStatus(MovieStatus.COMING_SOON)
                 .stream().map(this::mapToResponse).collect(Collectors.toList());
