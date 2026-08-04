@@ -20,7 +20,13 @@ public class AdminGenreController {
     private final IGenreService genreService;
 
     @GetMapping
-    public ResponseEntity<List<GenreResponse>> getAllGenres() {
+    public ResponseEntity<?> getAllGenres(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String search) {
+        if (page != null && size != null) {
+            return ResponseEntity.ok(genreService.getGenresPaged(page, size, search));
+        }
         return ResponseEntity.ok(genreService.getAllGenres());
     }
 

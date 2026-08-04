@@ -3,6 +3,7 @@ package com.moviebooking.service.movie;
 import com.moviebooking.dto.req.MovieRequest;
 import com.moviebooking.dto.res.GenreResponse;
 import com.moviebooking.dto.res.MovieResponse;
+import com.moviebooking.dto.res.PageResponse;
 import com.moviebooking.model.Genre;
 import com.moviebooking.model.Movie;
 import com.moviebooking.model.enums.MovieStatus;
@@ -42,6 +43,38 @@ public class MovieService implements IMovieService {
         }
 
         return movies.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<MovieResponse> getMoviesPaged(int pageNo, int pageSize, MovieStatus status, String search) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                pageNo, pageSize, org.springframework.data.domain.Sort.by("id").descending()
+        );
+        org.springframework.data.domain.Page<Movie> moviePage;
+
+        if (status != null && search != null && !search.trim().isEmpty()) {
+            moviePage = movieRepository.findByStatusAndTitleContainingIgnoreCase(status, search.trim(), pageable);
+        } else if (status != null) {
+            moviePage = movieRepository.findByStatus(status, pageable);
+        } else if (search != null && !search.trim().isEmpty()) {
+            moviePage = movieRepository.findByTitleContainingIgnoreCase(search.trim(), pageable);
+        } else {
+            moviePage = movieRepository.findAll(pageable);
+        }
+
+        List<MovieResponse> content = moviePage.getContent().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.<MovieResponse>builder()
+                .content(content)
+                .pageNo(moviePage.getNumber())
+                .pageSize(moviePage.getSize())
+                .totalElements(moviePage.getTotalElements())
+                .totalPages(moviePage.getTotalPages())
+                .last(moviePage.isLast())
+                .build();
     }
 
     @Override

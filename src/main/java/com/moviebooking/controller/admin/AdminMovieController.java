@@ -12,8 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/admin/movies")
 @RequiredArgsConstructor
@@ -22,9 +20,14 @@ public class AdminMovieController {
     private final IMovieService movieService;
 
     @GetMapping
-    public ResponseEntity<List<MovieResponse>> getAllMovies(
+    public ResponseEntity<?> getAllMovies(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
             @RequestParam(required = false) MovieStatus status,
             @RequestParam(required = false) String search) {
+        if (page != null && size != null) {
+            return ResponseEntity.ok(movieService.getMoviesPaged(page, size, status, search));
+        }
         return ResponseEntity.ok(movieService.getAllMovies(status, search));
     }
 

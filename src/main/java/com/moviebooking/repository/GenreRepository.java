@@ -1,6 +1,8 @@
 package com.moviebooking.repository;
 
 import com.moviebooking.model.Genre;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -11,4 +13,5 @@ public interface GenreRepository extends JpaRepository<Genre, Long> {
     boolean existsByName(String name);
     boolean existsByNameAndIdNot(String name, Long id);
     Optional<Genre> findByName(String name);
+    Page<Genre> findByNameContainingIgnoreCase(String name, Pageable pageable);
 }
