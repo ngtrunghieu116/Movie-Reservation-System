@@ -28,7 +28,8 @@ public class SecurityConfig {
         private String allowedOrigins;
 
         private static final String[] WHITE_LIST_URL = {
-                        "/api/auth/**"
+                        "/api/auth/**",
+                        "/uploads/**"
         };
 
         @Bean
@@ -39,6 +40,7 @@ public class SecurityConfig {
                                 .authorizeHttpRequests(req -> req
                                                 .requestMatchers(WHITE_LIST_URL).permitAll()
                                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/genres/**").permitAll()
+                                                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/movies/**").permitAll()
                                                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                                                 .anyRequest().authenticated())
                                 .sessionManagement(session -> session
