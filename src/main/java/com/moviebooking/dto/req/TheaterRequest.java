@@ -11,7 +11,7 @@ import lombok.Setter;
 @Setter
 public class TheaterRequest {
 
-    @NotBlank(message = "Tên rạp/cơ sở không được để trống")
+    @NotBlank(message = "Tên rạp không được để trống")
     @Size(max = 100, message = "Tên rạp không được vượt quá 100 ký tự")
     private String name;
 
@@ -28,7 +28,7 @@ public class TheaterRequest {
     private String district;
 
     @NotBlank(message = "Số điện thoại không được để trống")
-    @Pattern(regexp = "^(0[2-9]|1800|1900)[0-9]{7,9}$", message = "Số điện thoại không hợp lệ (hỗ trợ số di động, số bàn hoặc hotline 1800/1900)")
+    @Pattern(regexp = "^(0[2-9]|1800|1900)[0-9]{7,9}$", message = "Số điện thoại không hợp lệ")
     private String phone;
 
     @Email(message = "Email không đúng định dạng")

@@ -45,7 +45,8 @@ public class TheaterService implements ITheaterService {
         Page<Theater> theaterPage;
 
         if (search != null && !search.trim().isEmpty()) {
-            theaterPage = theaterRepository.findByNameContainingIgnoreCaseOrCityContainingIgnoreCase(search.trim(), search.trim(), pageable);
+            theaterPage = theaterRepository.findByNameContainingIgnoreCaseOrCityContainingIgnoreCase(search.trim(),
+                    search.trim(), pageable);
         } else {
             theaterPage = theaterRepository.findAll(pageable);
         }
@@ -76,7 +77,7 @@ public class TheaterService implements ITheaterService {
     @Transactional
     public TheaterResponse createTheater(TheaterRequest request) {
         if (theaterRepository.existsByName(request.getName())) {
-            throw new RuntimeException("Tên rạp/cơ sở này đã tồn tại trong hệ thống!");
+            throw new RuntimeException("Cơ sở này đã tồn tại trong hệ thống!");
         }
 
         Theater theater = Theater.builder()
@@ -101,7 +102,7 @@ public class TheaterService implements ITheaterService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy rạp/cơ sở với ID: " + id));
 
         if (theaterRepository.existsByNameAndIdNot(request.getName(), id)) {
-            throw new RuntimeException("Tên rạp/cơ sở này đã trùng với một cơ sở khác!");
+            throw new RuntimeException("Cơ sở này đã trùng với một cơ sở khác!");
         }
 
         theater.setName(request.getName());
