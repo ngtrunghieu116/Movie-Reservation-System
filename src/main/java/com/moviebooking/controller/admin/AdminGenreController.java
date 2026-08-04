@@ -1,4 +1,4 @@
-package com.moviebooking.controller;
+package com.moviebooking.controller.admin;
 
 import com.moviebooking.dto.req.GenreRequest;
 import com.moviebooking.dto.res.GenreResponse;
