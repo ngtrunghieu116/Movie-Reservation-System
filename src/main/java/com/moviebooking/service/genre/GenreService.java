@@ -2,9 +2,14 @@ package com.moviebooking.service.genre;
 
 import com.moviebooking.dto.req.GenreRequest;
 import com.moviebooking.dto.res.GenreResponse;
+import com.moviebooking.dto.res.PageResponse;
 import com.moviebooking.model.Genre;
 import com.moviebooking.repository.GenreRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +23,7 @@ public class GenreService implements IGenreService {
     private final GenreRepository genreRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public List<GenreResponse> getAllGenres() {
         return genreRepository.findAll().stream()
                 .map(this::mapToResponse)
@@ -25,6 +31,33 @@ public class GenreService implements IGenreService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public PageResponse<GenreResponse> getGenresPaged(int pageNo, int pageSize, String search) {
+        Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by("id").descending());
+        Page<Genre> genrePage;
+
+        if (search != null && !search.trim().isEmpty()) {
+            genrePage = genreRepository.findByNameContainingIgnoreCase(search.trim(), pageable);
+        } else {
+            genrePage = genreRepository.findAll(pageable);
+        }
+
+        List<GenreResponse> content = genrePage.getContent().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.<GenreResponse>builder()
+                .content(content)
+                .pageNo(genrePage.getNumber())
+                .pageSize(genrePage.getSize())
+                .totalElements(genrePage.getTotalElements())
+                .totalPages(genrePage.getTotalPages())
+                .last(genrePage.isLast())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public GenreResponse getGenreById(Long id) {
         Genre genre = genreRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy thể loại phim với ID: " + id));
