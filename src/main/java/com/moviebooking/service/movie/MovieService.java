@@ -49,8 +49,7 @@ public class MovieService implements IMovieService {
     @Transactional(readOnly = true)
     public PageResponse<MovieResponse> getMoviesPaged(int pageNo, int pageSize, MovieStatus status, String search) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
-                pageNo, pageSize, org.springframework.data.domain.Sort.by("id").descending()
-        );
+                pageNo, pageSize, org.springframework.data.domain.Sort.by("id").descending());
         org.springframework.data.domain.Page<Movie> moviePage;
 
         if (status != null && search != null && !search.trim().isEmpty()) {
@@ -200,7 +199,7 @@ public class MovieService implements IMovieService {
         }
         List<Genre> foundGenres = genreRepository.findAllById(genreIds);
         if (foundGenres.size() != genreIds.size()) {
-            throw new RuntimeException("Một hoặc nhiều ID thể loại không tồn tại!");
+            throw new RuntimeException("Thể loại không tồn tại!");
         }
         return new HashSet<>(foundGenres);
     }
