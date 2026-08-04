@@ -28,7 +28,7 @@ public class TheaterRequest {
     private String district;
 
     @NotBlank(message = "Số điện thoại không được để trống")
-    @Pattern(regexp = "^(0[3|5|7|8|9])+([0-9]{8})$", message = "Số điện thoại không hợp lệ (ví dụ: 0912345678)")
+    @Pattern(regexp = "^(0[2-9]|1800|1900)[0-9]{7,9}$", message = "Số điện thoại không hợp lệ (hỗ trợ số di động, số bàn hoặc hotline 1800/1900)")
     private String phone;
 
     @Email(message = "Email không đúng định dạng")
