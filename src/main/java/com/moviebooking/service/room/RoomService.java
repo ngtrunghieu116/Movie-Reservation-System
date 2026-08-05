@@ -6,6 +6,8 @@ import com.moviebooking.dto.res.RoomResponse;
 import com.moviebooking.model.Room;
 import com.moviebooking.model.Theater;
 import com.moviebooking.repository.RoomRepository;
+import com.moviebooking.repository.SeatRepository;
+import com.moviebooking.repository.ShowtimeRepository;
 import com.moviebooking.repository.TheaterRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -15,6 +17,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,6 +27,8 @@ public class RoomService implements IRoomService {
 
     private final RoomRepository roomRepository;
     private final TheaterRepository theaterRepository;
+    private final SeatRepository seatRepository;
+    private final ShowtimeRepository showtimeRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -124,6 +129,13 @@ public class RoomService implements IRoomService {
     public void deleteRoom(Long id) {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng chiếu với ID: " + id));
+
+        if (showtimeRepository.existsByRoomIdAndEndTimeAfter(id, LocalDateTime.now())) {
+            throw new IllegalStateException("Không thể xóa phòng chiếu vì phòng chiếu đang có lịch chiếu sắp diễn ra!");
+        }
+
+        seatRepository.deleteByRoomId(id);
+        seatRepository.flush();
         roomRepository.delete(room);
     }
 

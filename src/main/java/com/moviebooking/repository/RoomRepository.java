@@ -25,6 +25,9 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     Optional<Room> findById(Long id);
 
     @EntityGraph(attributePaths = {"theater"})
+    List<Room> findByTheaterId(Long theaterId);
+
+    @EntityGraph(attributePaths = {"theater"})
     Page<Room> findByTheaterId(Long theaterId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"theater"})
