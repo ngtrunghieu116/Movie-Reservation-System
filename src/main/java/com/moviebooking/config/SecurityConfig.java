@@ -42,6 +42,8 @@ public class SecurityConfig {
                                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/genres/**").permitAll()
                                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/movies/**").permitAll()
                                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/theaters/**").permitAll()
+                                                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rooms/**").permitAll()
+                                                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/seats/**").permitAll()
                                                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                                                 .anyRequest().authenticated())
                                 .sessionManagement(session -> session

@@ -4,7 +4,11 @@ import com.moviebooking.dto.req.TheaterRequest;
 import com.moviebooking.dto.res.PageResponse;
 import com.moviebooking.dto.res.TheaterResponse;
 import com.moviebooking.model.Theater;
+import com.moviebooking.repository.RoomRepository;
+import com.moviebooking.repository.SeatRepository;
+import com.moviebooking.repository.ShowtimeRepository;
 import com.moviebooking.repository.TheaterRepository;
+import com.moviebooking.model.Room;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -13,6 +17,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,6 +26,9 @@ import java.util.stream.Collectors;
 public class TheaterService implements ITheaterService {
 
     private final TheaterRepository theaterRepository;
+    private final RoomRepository roomRepository;
+    private final SeatRepository seatRepository;
+    private final ShowtimeRepository showtimeRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -125,6 +133,19 @@ public class TheaterService implements ITheaterService {
     public void deleteTheater(Long id) {
         Theater theater = theaterRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy rạp/cơ sở với ID: " + id));
+
+        List<Room> rooms = roomRepository.findByTheaterId(id);
+        for (Room room : rooms) {
+            if (showtimeRepository.existsByRoomIdAndEndTimeAfter(room.getId(), LocalDateTime.now())) {
+                throw new IllegalStateException("Không thể xóa cơ sở rạp vì có phòng chiếu đang chứa lịch chiếu sắp diễn ra!");
+            }
+            seatRepository.deleteByRoomId(room.getId());
+        }
+        seatRepository.flush();
+        if (!rooms.isEmpty()) {
+            roomRepository.deleteAll(rooms);
+            roomRepository.flush();
+        }
         theaterRepository.delete(theater);
     }
 

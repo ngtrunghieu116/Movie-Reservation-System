@@ -60,6 +60,15 @@ public class GlobalExceptionHandler {
                         ex.getMessage()));
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(
+            org.springframework.dao.DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of(
+                        "message",
+                        "Dữ liệu đã tồn tại hoặc vi phạm ràng buộc hệ thống. Vui lòng kiểm tra lại!"));
+    }
+
     // 5. Xử lý tất cả các lỗi không mong muốn khác (System Error / 500)
     // Giúp bảo vệ hệ thống, log lỗi chi tiết ra console nhưng chỉ trả về thông báo
     // thân thiện cho User
