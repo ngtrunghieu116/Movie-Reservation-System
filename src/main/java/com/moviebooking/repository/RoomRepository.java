@@ -24,6 +24,10 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     @EntityGraph(attributePaths = {"theater"})
     Optional<Room> findById(Long id);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT r FROM Room r WHERE r.id = :id")
+    Optional<Room> findByIdWithLock(@org.springframework.data.repository.query.Param("id") Long id);
+
     @EntityGraph(attributePaths = {"theater"})
     List<Room> findByTheaterId(Long theaterId);
 

@@ -9,4 +9,7 @@ import java.util.List;
 @Repository
 public interface ReservedSeatRepository extends JpaRepository<ReservedSeat, Long> {
     int countByReservationId(Long reservationId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(rs) FROM ReservedSeat rs WHERE rs.reservation.showtime.id = :showtimeId AND rs.reservation.status != 'CANCELLED'")
+    long countBookedSeatsByShowtimeId(@org.springframework.data.repository.query.Param("showtimeId") Long showtimeId);
 }
