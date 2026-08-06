@@ -23,6 +23,7 @@ public class MovieResponse {
     private LocalDate releaseDate;
     private LocalDate endDate;
     private String posterPath;
+    private String bannerPath;
     private String trailerUrl;
     private AgeRating ageRating;
     private String language;

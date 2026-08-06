@@ -87,7 +87,7 @@ public class MovieService implements IMovieService {
 
     @Override
     @Transactional
-    public MovieResponse createMovie(MovieRequest request, MultipartFile posterFile) {
+    public MovieResponse createMovie(MovieRequest request, MultipartFile posterFile, MultipartFile bannerFile) {
         // Validation: Date logic
         if (request.getReleaseDate().isAfter(request.getEndDate())) {
             throw new RuntimeException("Ngày khởi chiếu không được diễn ra sau ngày kết thúc!");
@@ -103,6 +103,7 @@ public class MovieService implements IMovieService {
 
         // Store File
         String posterPath = fileStorageService.storePosterFile(posterFile);
+        String bannerPath = fileStorageService.storeBannerFile(bannerFile);
 
         // Map genres
         Set<Genre> genres = fetchGenresByIds(request.getGenreIds());
@@ -117,6 +118,7 @@ public class MovieService implements IMovieService {
                 .releaseDate(request.getReleaseDate())
                 .endDate(request.getEndDate())
                 .posterPath(posterPath)
+                .bannerPath(bannerPath)
                 .trailerUrl(request.getTrailerUrl())
                 .ageRating(request.getAgeRating())
                 .language(request.getLanguage())
@@ -131,7 +133,7 @@ public class MovieService implements IMovieService {
 
     @Override
     @Transactional
-    public MovieResponse updateMovie(Long id, MovieRequest request, MultipartFile posterFile) {
+    public MovieResponse updateMovie(Long id, MovieRequest request, MultipartFile posterFile, MultipartFile bannerFile) {
         Movie movie = movieRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bộ phim với ID: " + id));
 
@@ -148,6 +150,11 @@ public class MovieService implements IMovieService {
         if (posterFile != null && !posterFile.isEmpty()) {
             String posterPath = fileStorageService.storePosterFile(posterFile);
             movie.setPosterPath(posterPath);
+        }
+
+        if (bannerFile != null && !bannerFile.isEmpty()) {
+            String bannerPath = fileStorageService.storeBannerFile(bannerFile);
+            movie.setBannerPath(bannerPath);
         }
 
         // Map genres
@@ -194,7 +201,7 @@ public class MovieService implements IMovieService {
                 .stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
-    private Set<Genre> fetchGenresByIds(Set<Long> genreIds) {
+    private Set<Genre> fetchGenresByIds(List<Long> genreIds) {
         if (genreIds == null || genreIds.isEmpty()) {
             return new HashSet<>();
         }
@@ -225,6 +232,7 @@ public class MovieService implements IMovieService {
                 .releaseDate(movie.getReleaseDate())
                 .endDate(movie.getEndDate())
                 .posterPath(movie.getPosterPath())
+                .bannerPath(movie.getBannerPath())
                 .trailerUrl(movie.getTrailerUrl())
                 .ageRating(movie.getAgeRating())
                 .language(movie.getLanguage())

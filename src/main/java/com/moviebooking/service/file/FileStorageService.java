@@ -17,6 +17,9 @@ public class FileStorageService {
     @Value("${app.upload.poster-dir:uploads/posters/}")
     private String posterDir;
 
+    @Value("${app.upload.banner-dir:uploads/banners/}")
+    private String bannerDir;
+
     @Value("${app.upload.product-dir:uploads/products/}")
     private String productDir;
 
@@ -63,6 +66,47 @@ public class FileStorageService {
             return "/uploads/posters/" + newFilename;
         } catch (IOException e) {
             throw new RuntimeException("Không thể lưu trữ file poster: " + e.getMessage());
+        }
+    }
+
+    public String storeBannerFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return null;
+        }
+
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new RuntimeException("Kích thước file banner vượt quá giới hạn tối đa 5MB!");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
+            throw new RuntimeException("Định dạng file banner không hợp lệ! Chỉ chấp nhận ảnh (JPEG, PNG, WEBP).");
+        }
+
+        try {
+            Path uploadPath = Paths.get(bannerDir);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+
+            String originalFilename = file.getOriginalFilename();
+            String fileExtension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            } else {
+                fileExtension = ".jpg";
+            }
+
+            String newFilename = UUID.randomUUID().toString() + fileExtension;
+            Path filePath = uploadPath.resolve(newFilename);
+
+            try (InputStream inputStream = file.getInputStream()) {
+                Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            return "/uploads/banners/" + newFilename;
+        } catch (IOException e) {
+            throw new RuntimeException("Không thể lưu trữ file banner: " + e.getMessage());
         }
     }
 
