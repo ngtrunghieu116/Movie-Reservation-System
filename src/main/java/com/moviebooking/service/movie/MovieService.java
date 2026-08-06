@@ -201,7 +201,7 @@ public class MovieService implements IMovieService {
                 .stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
-    private Set<Genre> fetchGenresByIds(List<Long> genreIds) {
+    private Set<Genre> fetchGenresByIds(Set<Long> genreIds) {
         if (genreIds == null || genreIds.isEmpty()) {
             return new HashSet<>();
         }

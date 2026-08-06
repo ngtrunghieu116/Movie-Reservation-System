@@ -14,6 +14,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Value("${app.upload.poster-dir:uploads/posters/}")
     private String posterDir;
 
+    @Value("${app.upload.banner-dir:uploads/banners/}")
+    private String bannerDir;
+
     @Value("${app.upload.product-dir:uploads/products/}")
     private String productDir;
 
