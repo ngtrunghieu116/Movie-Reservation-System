@@ -2,6 +2,7 @@ package com.moviebooking.model;
 
 import com.moviebooking.model.enums.Gender;
 import com.moviebooking.model.enums.Role;
+import com.moviebooking.model.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -39,9 +40,13 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private UserStatus status = UserStatus.ACTIVE;
     @Column(name = "email_verified", nullable = false)
     @Builder.Default
-    private Boolean emailVerified = false;
+    private Boolean emailVerified = true;
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

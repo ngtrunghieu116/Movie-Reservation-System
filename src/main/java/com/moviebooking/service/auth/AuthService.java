@@ -113,6 +113,10 @@ public class AuthService implements IAuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại!"));
 
+        if (user.getStatus() == com.moviebooking.model.enums.UserStatus.BLOCKED) {
+            throw new RuntimeException("Tài khoản của bạn đã bị khóa");
+        }
+
         // Kiểm tra xác thực email
         if (Boolean.FALSE.equals(user.getEmailVerified())) {
             throw new EmailNotVerifiedException("Email chưa được xác thực!");
@@ -194,6 +198,8 @@ public class AuthService implements IAuthService {
                         .emailVerified(true)
                         .build();
                 userRepository.save(user);
+            } else if (user.getStatus() == com.moviebooking.model.enums.UserStatus.BLOCKED) {
+                throw new RuntimeException("Tài khoản của bạn đã bị khóa");
             }
 
             // Sinh Token
