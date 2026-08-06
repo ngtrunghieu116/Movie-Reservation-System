@@ -25,6 +25,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addResourceHandler("/uploads/posters/**")
                 .addResourceLocations("file:/" + posterAbsolutePath + "/");
 
+        Path bannerUploadPath = Paths.get(bannerDir);
+        String bannerAbsolutePath = bannerUploadPath.toFile().getAbsolutePath();
+
+        registry.addResourceHandler("/uploads/banners/**")
+                .addResourceLocations("file:/" + bannerAbsolutePath + "/");
+
         Path productUploadPath = Paths.get(productDir);
         String productAbsolutePath = productUploadPath.toFile().getAbsolutePath();
 

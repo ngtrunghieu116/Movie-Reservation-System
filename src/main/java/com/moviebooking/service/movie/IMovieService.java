@@ -12,8 +12,8 @@ public interface IMovieService {
     List<MovieResponse> getAllMovies(MovieStatus status, String search);
     PageResponse<MovieResponse> getMoviesPaged(int pageNo, int pageSize, MovieStatus status, String search);
     MovieResponse getMovieById(Long id);
-    MovieResponse createMovie(MovieRequest request, MultipartFile posterFile);
-    MovieResponse updateMovie(Long id, MovieRequest request, MultipartFile posterFile);
+    MovieResponse createMovie(MovieRequest request, MultipartFile posterFile, MultipartFile bannerFile);
+    MovieResponse updateMovie(Long id, MovieRequest request, MultipartFile posterFile, MultipartFile bannerFile);
     void deleteMovie(Long id);
     List<MovieResponse> getNowShowingMovies();
     List<MovieResponse> getComingSoonMovies();

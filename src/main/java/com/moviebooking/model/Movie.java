@@ -35,6 +35,8 @@ public class Movie {
     private LocalDate endDate;
     @Column(name = "poster_path", nullable = false, length = 255)
     private String posterPath;
+    @Column(name = "banner_path", length = 255)
+    private String bannerPath;
     @Column(name = "trailer_url", length = 500)
     private String trailerUrl;
     @Enumerated(EnumType.STRING)
