@@ -1,4 +1,4 @@
-package com.moviebooking.controller;
+package com.moviebooking.controller.admin;
 
 import com.moviebooking.dto.req.ShowtimeRequest;
 import com.moviebooking.dto.res.AdminShowtimeResponse;
@@ -53,6 +53,7 @@ public class AdminShowtimeController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime toDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(showtimeService.searchShowtimes(theaterId, roomId, movieId, fromDate, toDate, page, size));
+        return ResponseEntity
+                .ok(showtimeService.searchShowtimes(theaterId, roomId, movieId, fromDate, toDate, page, size));
     }
 }
