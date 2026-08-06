@@ -14,6 +14,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Value("${app.upload.poster-dir:uploads/posters/}")
     private String posterDir;
 
+    @Value("${app.upload.product-dir:uploads/products/}")
+    private String productDir;
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         Path posterUploadPath = Paths.get(posterDir);
@@ -21,5 +24,17 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
         registry.addResourceHandler("/uploads/posters/**")
                 .addResourceLocations("file:/" + posterAbsolutePath + "/");
+
+        Path productUploadPath = Paths.get(productDir);
+        String productAbsolutePath = productUploadPath.toFile().getAbsolutePath();
+
+        registry.addResourceHandler("/uploads/products/**")
+                .addResourceLocations("file:/" + productAbsolutePath + "/");
+
+        Path rootUploadPath = Paths.get("uploads");
+        String rootAbsolutePath = rootUploadPath.toFile().getAbsolutePath();
+
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:/" + rootAbsolutePath + "/");
     }
 }
