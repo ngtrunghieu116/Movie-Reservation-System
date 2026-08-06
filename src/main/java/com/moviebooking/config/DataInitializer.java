@@ -19,9 +19,26 @@ public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Override
     public void run(String... args) {
+        // Schema cleanup for legacy/orphaned columns in products table
+        try {
+            jdbcTemplate.execute("ALTER TABLE products DROP COLUMN stock");
+            log.info("Dropped legacy column 'stock' from products table.");
+        } catch (Exception ignored) {}
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE products DROP COLUMN is_combo");
+            log.info("Dropped legacy column 'is_combo' from products table.");
+        } catch (Exception ignored) {}
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE products MODIFY COLUMN category VARCHAR(50) NOT NULL");
+            log.info("Updated category column type to VARCHAR(50) in products table.");
+        } catch (Exception ignored) {}
+
         if (!userRepository.existsByEmail("admin@gmail.com")) {
             User admin = User.builder()
                     .email("admin@gmail.com")

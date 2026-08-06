@@ -1,5 +1,5 @@
 package com.moviebooking.model.enums;
 
 public enum ProductCategory {
-    FOOD, DRINK
+    FOOD, DRINK, COMBO
 }

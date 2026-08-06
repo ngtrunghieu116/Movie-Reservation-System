@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.moviebooking.exception.EmailNotVerifiedException;
+import com.moviebooking.exception.DuplicateResourceException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,6 +39,14 @@ public class GlobalExceptionHandler {
         error.put("message", ex.getMessage());
 
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<Map<String, String>> handleDuplicateResourceException(DuplicateResourceException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("message", ex.getMessage());
+
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
