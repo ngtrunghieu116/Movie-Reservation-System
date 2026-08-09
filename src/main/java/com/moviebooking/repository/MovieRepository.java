@@ -28,7 +28,15 @@ public interface MovieRepository extends JpaRepository<Movie, Long>, JpaSpecific
     List<Movie> findByStatus(MovieStatus status);
 
     @EntityGraph(attributePaths = {"genres"})
+    List<Movie> findByStatusIn(List<MovieStatus> statuses);
+
+    @EntityGraph(attributePaths = {"genres"})
     Page<Movie> findByStatus(MovieStatus status, Pageable pageable);
+
+    boolean existsBySourceId(String sourceId);
+
+    @EntityGraph(attributePaths = {"genres"})
+    Optional<Movie> findBySourceId(String sourceId);
 
     @EntityGraph(attributePaths = {"genres"})
     List<Movie> findByTitleContainingIgnoreCase(String title);
