@@ -46,6 +46,12 @@ public class Movie {
     private String language;
     @Column(length = 100)
     private String subtitle;
+
+    // Crawler fields
+    @Column(length = 50)
+    private String source;
+    @Column(name = "source_id", length = 100, unique = true)
+    private String sourceId;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MovieStatus status;
