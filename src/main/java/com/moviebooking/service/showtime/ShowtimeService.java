@@ -24,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -43,8 +42,7 @@ public class ShowtimeService implements IShowtimeService {
     @Override
     @Transactional
     public AdminShowtimeResponse createShowtime(ShowtimeRequest request) {
-        // Use Pessimistic Locking to prevent concurrent showtime creation for the same
-        // room
+        // Use Pessimistic Locking to prevent concurrent showtime creation for the same room
         Room room = roomRepository.findByIdWithLock(request.getRoomId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng chiếu"));
 
@@ -54,6 +52,8 @@ public class ShowtimeService implements IShowtimeService {
 
         Movie movie = movieRepository.findById(request.getMovieId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim"));
+
+        validateMovieStatusForShowtime(movie);
 
         LocalDateTime startTime = request.getStartTime();
 
@@ -105,6 +105,8 @@ public class ShowtimeService implements IShowtimeService {
 
             Movie movie = movieRepository.findById(request.getMovieId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim"));
+
+            validateMovieStatusForShowtime(movie);
 
             LocalDateTime startTime = request.getStartTime();
 
@@ -178,6 +180,15 @@ public class ShowtimeService implements IShowtimeService {
                 .map(PublicShowtimeResponse::fromEntity);
     }
 
+    private void validateMovieStatusForShowtime(Movie movie) {
+        if (movie.getStatus() == MovieStatus.COMING_SOON) {
+            throw new IllegalArgumentException("Không thể tạo suất chiếu cho phim đang ở trạng thái Sắp chiếu (COMING_SOON).");
+        }
+        if (movie.getStatus() == MovieStatus.ENDED) {
+            throw new IllegalArgumentException("Không thể tạo suất chiếu cho phim đã kết thúc (ENDED).");
+        }
+    }
+
     private void validateOverlap(Long roomId, LocalDateTime startTime, LocalDateTime endTime, Long excludeId) {
         LocalDateTime adjustedStartTime = startTime.minusMinutes(bufferTimeMinutes);
         LocalDateTime adjustedEndTime = endTime.plusMinutes(bufferTimeMinutes);
@@ -192,10 +203,13 @@ public class ShowtimeService implements IShowtimeService {
 
     private void validateMovieDates(Movie movie, LocalDateTime startTime) {
         java.time.LocalDate showDate = startTime.toLocalDate();
-        if (showDate.isBefore(movie.getReleaseDate()) || showDate.isAfter(movie.getEndDate())) {
+        if (movie.getReleaseDate() != null && showDate.isBefore(movie.getReleaseDate())) {
             throw new IllegalArgumentException(
-                    String.format("Không thể tạo suất chiếu ngoài thời gian công chiếu của phim (%s - %s).",
-                            showDate, movie.getReleaseDate(), movie.getEndDate()));
+                    String.format("Không thể tạo suất chiếu trước ngày công chiếu của phim (%s).", movie.getReleaseDate()));
+        }
+        if (movie.getEndDate() != null && showDate.isAfter(movie.getEndDate())) {
+            throw new IllegalArgumentException(
+                    String.format("Không thể tạo suất chiếu sau ngày kết thúc của phim (%s).", movie.getEndDate()));
         }
     }
 

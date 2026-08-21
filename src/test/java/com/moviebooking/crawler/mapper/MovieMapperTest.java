@@ -7,6 +7,8 @@ import com.moviebooking.model.enums.AgeRating;
 import com.moviebooking.model.enums.MovieStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import com.moviebooking.service.movie.resolver.MovieStatusResolver;
 import java.time.LocalDate;
@@ -56,6 +58,33 @@ class MovieMapperTest {
         assertEquals(MovieStatus.NOW_SHOWING, movie.getStatus());
     }
 
+    @ParameterizedTest
+    @CsvSource({
+        "P, P",
+        "K, P",
+        "0, P",
+        "C13, T13",
+        "T13, T13",
+        "13+, T13",
+        "13, T13",
+        "C-13, T13",
+        "C16, T16",
+        "T16, T16",
+        "16+, T16",
+        "16, T16",
+        "C-16, T16",
+        "C18, T18",
+        "T18, T18",
+        "18+, T18",
+        "18, T18",
+        "C-18, T18",
+        "UNKNOWN_STRING, P"
+    })
+    void parseAgeRating_ShouldMapAllFormatsCorrectly(String inputRaw, AgeRating expectedRating) {
+        AgeRating actual = movieMapper.parseAgeRating(inputRaw);
+        assertEquals(expectedRating, actual, "Failed for raw string: " + inputRaw);
+    }
+
     @Test
     void toEntity_WithMissingEndDate_ShouldDefaultToOneMonthAfterRelease() {
         MovieListItemDTO listDto = new MovieListItemDTO();
@@ -64,16 +93,6 @@ class MovieMapperTest {
         Movie movie = movieMapper.toEntity(listDto, new MovieDetailDTO(), "NCC");
         
         assertEquals(LocalDate.of(2023, 6, 10), movie.getEndDate());
-    }
-
-    @Test
-    void toEntity_WithInvalidAgeRating_ShouldDefaultToP() {
-        MovieListItemDTO listDto = new MovieListItemDTO();
-        listDto.setAgeRatingRaw("UNKNOWN");
-        
-        Movie movie = movieMapper.toEntity(listDto, new MovieDetailDTO(), "NCC");
-        
-        assertEquals(AgeRating.P, movie.getAgeRating());
     }
 
     @Test

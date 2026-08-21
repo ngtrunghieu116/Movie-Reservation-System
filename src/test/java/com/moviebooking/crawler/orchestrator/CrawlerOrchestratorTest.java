@@ -100,7 +100,7 @@ class CrawlerOrchestratorTest {
         Genre actionGenre = Genre.builder().id(1L).name("Hành động").build();
 
         when(movieRepository.findBySourceId("ncc:1001")).thenReturn(Optional.of(existingMovie));
-        when(movieEnricher.enrichMissingGenres(existingMovie, detail)).thenAnswer(invocation -> {
+        when(movieEnricher.enrichExistingMovie(existingMovie, listItem, detail)).thenAnswer(invocation -> {
             existingMovie.setGenres(Set.of(actionGenre));
             return true;
         });
@@ -125,7 +125,7 @@ class CrawlerOrchestratorTest {
         existingMovie.setGenres(Set.of(actionGenre));
 
         when(movieRepository.findBySourceId("ncc:1001")).thenReturn(Optional.of(existingMovie));
-        when(movieEnricher.enrichMissingGenres(existingMovie, detail)).thenReturn(false);
+        when(movieEnricher.enrichExistingMovie(existingMovie, listItem, detail)).thenReturn(false);
 
         boolean result = orchestrator.processMovie(listItem);
 

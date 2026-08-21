@@ -54,6 +54,9 @@ public class NccWebsiteClient implements CrawlerClient {
     private static final Pattern RSC_PUSH_PATTERN = 
             Pattern.compile("self\\.__next_f\\.push\\((\\[\\d+,\".*?\"\\])\\)");
 
+    private static final Pattern AGE_SUFFIX_PATTERN = 
+            Pattern.compile("[-_\\s]+(C18|T18|18\\+|C16|T16|16\\+|C13|T13|13\\+)\\s*$", Pattern.CASE_INSENSITIVE);
+
     private static final String MOVIES_KEY = "movies";
     private static final String UPCOMING_MOVIES_KEY = "upcomingMovies";
     private static final String SHOW_TIMES_KEY = "showTimes";
@@ -293,7 +296,7 @@ public class NccWebsiteClient implements CrawlerClient {
             String filmNameEn = filmNode.path("FilmNameEn").asText("");
             String imageUrl = parsePosterUrl(filmNode);
             LocalDate premieredDay = parseReleaseDate(filmNode);
-            String ageRating = filmNode.path("AgeAboveShow").asText("");
+            String ageRating = parseAgeRatingRaw(filmNode);
             
             String sourceId = NCC_NAME.toLowerCase() + ":" + filmId;
 
@@ -311,6 +314,29 @@ public class NccWebsiteClient implements CrawlerClient {
             log.warn("[WARN] Failed to parse film node Id={} reason={}", filmId, e.getMessage());
             return null;
         }
+    }
+
+    private String parseAgeRatingRaw(JsonNode filmNode) {
+        // Level 1: AgeAboveShow (e.g. "C16", "C18", "C13", "P")
+        String ageShow = filmNode.path("AgeAboveShow").asText("");
+        if (!ageShow.isBlank()) {
+            return ageShow;
+        }
+
+        // Level 2: AgeAbove integer field (e.g. 16, 18, 13)
+        int ageAboveInt = filmNode.path("AgeAbove").asInt(0);
+        if (ageAboveInt > 0) {
+            return String.valueOf(ageAboveInt);
+        }
+
+        // Level 3: Regex match from raw FilmName suffix (e.g. "SPIDER MAN - T16")
+        String rawTitle = filmNode.path("FilmName").asText("");
+        Matcher matcher = AGE_SUFFIX_PATTERN.matcher(rawTitle);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+
+        return "";
     }
 
     private MovieDetailDTO parseFilmToDetail(JsonNode filmNode, String rscPayload) {
@@ -342,7 +368,7 @@ public class NccWebsiteClient implements CrawlerClient {
         if (raw.isBlank()) return "";
         // Remove age rating suffix like "-T16", "-T13", "-P", "-K" at end
         // Also remove language suffix like "(PHỤ ĐỀ)", "(LỒNG TIẾNG)"
-        String cleaned = raw.replaceAll("\\s*-\\s*(T18|T16|T13|P|K|C)\\s*$", "")
+        String cleaned = raw.replaceAll("\\s*-\\s*(T18|T16|T13|P|K|C|C18|C16|C13)\\s*$", "")
                            .replaceAll("\\s*\\(PHỤ ĐỀ\\)\\s*$", "")
                            .replaceAll("\\s*\\(LỒNG TIẾNG\\)\\s*$", "")
                            .replaceAll("\\s*\\(LT\\)\\s*$", "")
