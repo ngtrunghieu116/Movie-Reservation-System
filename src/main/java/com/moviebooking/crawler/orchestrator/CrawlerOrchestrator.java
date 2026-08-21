@@ -44,15 +44,15 @@ public class CrawlerOrchestrator {
                 dtoValidator.validateDetail(detail, listItem.getTitle());
             }
 
-            // 3. Check Duplicate
+            // 3. Check Duplicate & Enrich Existing Records
             Optional<Movie> existingOpt = movieRepository.findBySourceId(listItem.getSourceId());
             if (existingOpt.isPresent()) {
                 Movie existingMovie = existingOpt.get();
-                // Check if existing movie has missing genres that can be supplemented now
-                boolean genresSupplemented = movieEnricher.enrichMissingGenres(existingMovie, detail);
-                if (genresSupplemented) {
+                // Check if existing movie can be enriched with missing genres or updated ageRating
+                boolean updated = movieEnricher.enrichExistingMovie(existingMovie, listItem, detail);
+                if (updated) {
                     movieRepository.save(existingMovie);
-                    log.info("[INFO] Supplemented missing genres for existing movie title={} sourceId={}", listItem.getTitle(), listItem.getSourceId());
+                    log.info("[INFO] Enriched existing movie title={} sourceId={}", listItem.getTitle(), listItem.getSourceId());
                     return true;
                 }
                 log.info("[INFO] Skip duplicate title={} sourceId={}", listItem.getTitle(), listItem.getSourceId());
