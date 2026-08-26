@@ -9,9 +9,15 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
+    Optional<Showtime> findBySourceId(String sourceId);
+
+    List<Showtime> findBySourceIdStartingWithAndIsActiveTrue(String prefix);
+
     boolean existsByRoomIdAndEndTimeAfter(Long roomId, LocalDateTime time);
 
     @Query("SELECT COUNT(s) > 0 FROM Showtime s WHERE s.room.id = :roomId " +

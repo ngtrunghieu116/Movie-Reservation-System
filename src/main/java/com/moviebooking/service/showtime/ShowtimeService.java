@@ -1,5 +1,6 @@
 package com.moviebooking.service.showtime;
 
+import com.moviebooking.context.PrimaryCinemaContext;
 import com.moviebooking.dto.req.ShowtimeRequest;
 import com.moviebooking.dto.res.AdminShowtimeResponse;
 import com.moviebooking.dto.res.PublicShowtimeResponse;
@@ -35,9 +36,11 @@ public class ShowtimeService implements IShowtimeService {
     private final ReservationRepository reservationRepository;
     private final ReservedSeatRepository reservedSeatRepository;
     private final SeatRepository seatRepository;
+    private final PrimaryCinemaContext primaryCinemaContext;
 
     @Value("${app.showtime.buffer-time-minutes:15}")
     private int bufferTimeMinutes;
+
 
     @Override
     @Transactional
@@ -166,8 +169,9 @@ public class ShowtimeService implements IShowtimeService {
     @Transactional(readOnly = true)
     public Page<AdminShowtimeResponse> searchShowtimes(Long theaterId, Long roomId, Long movieId,
             LocalDateTime fromDate, LocalDateTime toDate, int page, int size) {
+        Long targetTheaterId = theaterId != null ? theaterId : primaryCinemaContext.getPrimaryTheaterId();
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startTime"));
-        return showtimeRepository.searchShowtimes(theaterId, roomId, movieId, fromDate, toDate, pageable)
+        return showtimeRepository.searchShowtimes(targetTheaterId, roomId, movieId, fromDate, toDate, pageable)
                 .map(this::toAdminResponse);
     }
 
@@ -175,10 +179,12 @@ public class ShowtimeService implements IShowtimeService {
     @Transactional(readOnly = true)
     public Page<PublicShowtimeResponse> searchPublicShowtimes(Long theaterId, Long roomId, Long movieId,
             LocalDateTime fromDate, LocalDateTime toDate, int page, int size) {
+        Long targetTheaterId = theaterId != null ? theaterId : primaryCinemaContext.getPrimaryTheaterId();
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startTime"));
-        return showtimeRepository.searchShowtimes(theaterId, roomId, movieId, fromDate, toDate, pageable)
+        return showtimeRepository.searchShowtimes(targetTheaterId, roomId, movieId, fromDate, toDate, pageable)
                 .map(PublicShowtimeResponse::fromEntity);
     }
+
 
     private void validateMovieStatusForShowtime(Movie movie) {
         if (movie.getStatus() == MovieStatus.COMING_SOON) {

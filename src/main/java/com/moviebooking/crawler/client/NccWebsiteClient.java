@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moviebooking.crawler.config.CrawlerProperties;
 import com.moviebooking.crawler.dto.MovieDetailDTO;
 import com.moviebooking.crawler.dto.MovieListItemDTO;
+import com.moviebooking.crawler.dto.ShowtimeItemDTO;
 import com.moviebooking.crawler.exception.CrawlerException;
 import com.moviebooking.crawler.exception.ParseException;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
@@ -103,6 +105,18 @@ public class NccWebsiteClient implements CrawlerClient {
         log.warn("[WARN] Movie detail not found in cache sourceId={}. " +
                  "NCC embeds all data in homepage.", detailUrl);
         return null;
+    }
+
+    @Override
+    @Retryable(
+            value = {CrawlerException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 2000, multiplier = 2)
+    )
+    public List<ShowtimeItemDTO> fetchShowtimeList() {
+        log.info("[INFO] Start fetch showtime list Source={} URL={}/movies", NCC_NAME, properties.getBaseUrl());
+        String html = fetchHtml(properties.getBaseUrl() + "/movies");
+        return parseShowtimeList(html);
     }
 
     // =========================================================================
@@ -456,5 +470,112 @@ public class NccWebsiteClient implements CrawlerClient {
         
         String text = rscPayload.substring(textStart, textEnd).trim();
         return text.isEmpty() ? null : text;
+    }
+
+    // =========================================================================
+    // Showtime List Parsing
+    // =========================================================================
+
+    private List<ShowtimeItemDTO> parseShowtimeList(String html) {
+        List<ShowtimeItemDTO> showtimes = new ArrayList<>();
+        Set<String> seenSessionIds = new HashSet<>();
+
+        try {
+            String rscPayload = extractRscPayload(html);
+            if (rscPayload.isEmpty()) {
+                throw new ParseException("RSC payload is empty on /movies page.", null);
+            }
+
+            String showTimesJson = extractArrayByKey(rscPayload, SHOW_TIMES_KEY);
+            if (showTimesJson == null) {
+                log.warn("[WARN] No 'showTimes' array found in RSC payload on /movies page.");
+                return showtimes;
+            }
+
+            JsonNode showTimesArray = objectMapper.readTree(showTimesJson);
+            if (!showTimesArray.isArray()) {
+                return showtimes;
+            }
+
+            for (JsonNode dayNode : showTimesArray) {
+                JsonNode lstFilm = dayNode.path("lstFilm");
+                if (!lstFilm.isArray()) continue;
+
+                for (JsonNode filmNode : lstFilm) {
+                    int filmId = filmNode.path("Id").asInt(0);
+                    if (filmId == 0) continue;
+                    String filmTitle = parseTitle(filmNode);
+                    String filmSourceId = NCC_NAME.toLowerCase() + ":" + filmId;
+
+                    JsonNode lstSession = filmNode.path("lstSession");
+                    if (!lstSession.isArray()) continue;
+
+                    for (JsonNode sessionNode : lstSession) {
+                        int sessionId = sessionNode.path("Id").asInt(0);
+                        if (sessionId == 0) continue;
+
+                        String sourceId = NCC_NAME.toLowerCase() + ":" + sessionId;
+                        if (seenSessionIds.contains(sourceId)) continue;
+                        seenSessionIds.add(sourceId);
+
+                        ShowtimeItemDTO dto = parseSessionToDto(sessionNode, filmSourceId, filmTitle, sourceId);
+                        if (dto != null) {
+                            showtimes.add(dto);
+                        }
+                    }
+                }
+            }
+
+            log.info("[INFO] Parsed showtime list total={} unique sessions from /movies", showtimes.size());
+            return showtimes;
+        } catch (ParseException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[ERROR] Failed to parse showtime list reason={}", e.getMessage(), e);
+            throw new ParseException("Failed to parse showtime list", e);
+        }
+    }
+
+    private ShowtimeItemDTO parseSessionToDto(JsonNode sessionNode, String filmSourceId, String filmTitle, String sourceId) {
+        try {
+            int roomIdInt = sessionNode.path("RoomId").asInt(0);
+            if (roomIdInt == 0) return null;
+            String roomSourceId = String.valueOf(roomIdInt);
+
+            String projectTimeStr = sessionNode.path("ProjectTime").asText("");
+            if (projectTimeStr.isBlank()) return null;
+
+            LocalDateTime startTime;
+            try {
+                startTime = LocalDateTime.parse(projectTimeStr);
+            } catch (Exception e) {
+                log.warn("[WARN] Failed to parse ProjectTime string='{}': {}", projectTimeStr, e.getMessage());
+                return null;
+            }
+
+            String pricePos1 = sessionNode.path("PriceOfPosition1").asText("");
+            String pricePos2 = sessionNode.path("PriceOfPosition2").asText("");
+            String pricePos3 = sessionNode.path("PriceOfPosition3").asText("");
+
+            int isOnlineSellingInt = sessionNode.path("IsOnlineSelling").asInt(1);
+            boolean isDeleted = sessionNode.path("Deleted").asBoolean(false);
+            boolean isOnline = (isOnlineSellingInt == 1) && !isDeleted;
+
+            return ShowtimeItemDTO.builder()
+                    .sourceId(sourceId)
+                    .filmSourceId(filmSourceId)
+                    .filmTitle(filmTitle)
+                    .roomSourceId(roomSourceId)
+                    .startTime(startTime)
+                    .priceStandardRaw(pricePos2) // Position 2 corresponds to Standard (T)
+                    .priceVipRaw(pricePos3)      // Position 3 corresponds to VIP (V)
+                    .priceCoupleRaw(pricePos1)   // Position 1 corresponds to Couple (D)
+                    .isOnlineSelling(isOnline)
+                    .deleted(isDeleted)
+                    .build();
+        } catch (Exception e) {
+            log.warn("[WARN] Failed to parse session node sourceId={} reason={}", sourceId, e.getMessage());
+            return null;
+        }
     }
 }

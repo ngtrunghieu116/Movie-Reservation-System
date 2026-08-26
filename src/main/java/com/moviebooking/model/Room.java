@@ -5,7 +5,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "rooms")
+@Table(name = "rooms", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_room_theater_source_room", columnNames = {"theater_id", "source_room_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -29,4 +31,7 @@ public class Room {
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
+
+    @Column(name = "source_room_id", length = 50)
+    private String sourceRoomId;
 }

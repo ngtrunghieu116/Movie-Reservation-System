@@ -42,4 +42,10 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     @EntityGraph(attributePaths = {"theater"})
     List<Room> findByTheaterIdAndIsActiveTrue(Long theaterId);
+
+    @EntityGraph(attributePaths = {"theater"})
+    Optional<Room> findBySourceRoomIdAndTheaterId(String sourceRoomId, Long theaterId);
+
+    @EntityGraph(attributePaths = {"theater"})
+    Optional<Room> findBySourceRoomId(String sourceRoomId);
 }

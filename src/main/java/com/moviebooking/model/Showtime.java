@@ -30,4 +30,23 @@ public class Showtime {
     private BigDecimal priceVip;
     @Column(name = "price_couple", nullable = false, precision = 10, scale = 2)
     private BigDecimal priceCouple;
+
+    // Crawler fields
+    @Column(name = "source_id", length = 100, unique = true)
+    private String sourceId;
+
+    @Column(name = "last_seen_at")
+    private LocalDateTime lastSeenAt;
+
+    @Column(name = "missing_count", nullable = false, columnDefinition = "INT DEFAULT 0")
+    @Builder.Default
+    private Integer missingCount = 0;
+
+    @Column(name = "is_active", nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    @Builder.Default
+    private Boolean isActive = true;
+
+    @Column(name = "is_online_selling", nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    @Builder.Default
+    private Boolean isOnlineSelling = true;
 }
