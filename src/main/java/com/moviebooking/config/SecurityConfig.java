@@ -29,9 +29,11 @@ public class SecurityConfig {
 
         private static final String[] WHITE_LIST_URL = {
                         "/api/auth/**",
+                        "/api/public/**",
                         "/uploads/**",
                         "/error"
         };
+
 
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

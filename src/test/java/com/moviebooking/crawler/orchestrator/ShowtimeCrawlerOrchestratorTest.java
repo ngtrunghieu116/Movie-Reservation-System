@@ -34,6 +34,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.moviebooking.service.seat.ShowtimeSeatService;
+
 @ExtendWith(MockitoExtension.class)
 class ShowtimeCrawlerOrchestratorTest {
 
@@ -52,11 +54,15 @@ class ShowtimeCrawlerOrchestratorTest {
     @Mock
     private RoomResolver roomResolver;
 
+    @Mock
+    private ShowtimeSeatService showtimeSeatService;
+
     @Spy
     private ShowtimePriceParser priceParser = new ShowtimePriceParser();
 
     @InjectMocks
     private ShowtimeCrawlerOrchestrator orchestrator;
+
 
     private Movie validNowShowingMovie;
     private Room validRoom;

@@ -26,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+import com.moviebooking.service.seat.ShowtimeSeatService;
+
 @Service
 @RequiredArgsConstructor
 public class ShowtimeService implements IShowtimeService {
@@ -37,6 +39,7 @@ public class ShowtimeService implements IShowtimeService {
     private final ReservedSeatRepository reservedSeatRepository;
     private final SeatRepository seatRepository;
     private final PrimaryCinemaContext primaryCinemaContext;
+    private final ShowtimeSeatService showtimeSeatService;
 
     @Value("${app.showtime.buffer-time-minutes:15}")
     private int bufferTimeMinutes;
@@ -77,9 +80,11 @@ public class ShowtimeService implements IShowtimeService {
                 .build();
 
         Showtime saved = showtimeRepository.save(showtime);
+        showtimeSeatService.initializeSeatsForShowtime(saved);
 
         return toAdminResponse(saved);
     }
+
 
     @Override
     @Transactional

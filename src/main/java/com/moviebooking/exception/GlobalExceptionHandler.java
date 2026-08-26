@@ -86,6 +86,30 @@ public class GlobalExceptionHandler {
                         "Dữ liệu đã tồn tại hoặc vi phạm ràng buộc hệ thống. Vui lòng kiểm tra lại!"));
     }
 
+    @ExceptionHandler(SeatAlreadyReservedException.class)
+    public ResponseEntity<Map<String, String>> handleSeatAlreadyReserved(SeatAlreadyReservedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidSeatHoldException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidSeatHold(InvalidSeatHoldException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(SeatHoldOwnershipException.class)
+    public ResponseEntity<Map<String, String>> handleSeatHoldOwnership(SeatHoldOwnershipException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ShowtimeNotBookableException.class)
+    public ResponseEntity<Map<String, String>> handleShowtimeNotBookable(ShowtimeNotBookableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
     // 5. Xử lý tất cả các lỗi không mong muốn khác (System Error / 500)
     // Giúp bảo vệ hệ thống, log lỗi chi tiết ra console nhưng chỉ trả về thông báo
     // thân thiện cho User
@@ -97,3 +121,4 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
+

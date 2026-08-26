@@ -19,8 +19,13 @@ public class OrderItem {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
+    @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
+    private BigDecimal unitPrice; // Price Snapshot đơn giá F&B tại thời điểm đặt
+
     @Column(nullable = false)
     private Integer quantity;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;
+
 }
