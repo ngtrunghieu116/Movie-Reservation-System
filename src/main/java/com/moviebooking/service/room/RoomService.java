@@ -1,5 +1,6 @@
 package com.moviebooking.service.room;
 
+import com.moviebooking.context.PrimaryCinemaContext;
 import com.moviebooking.dto.req.RoomRequest;
 import com.moviebooking.dto.res.PageResponse;
 import com.moviebooking.dto.res.RoomResponse;
@@ -29,11 +30,13 @@ public class RoomService implements IRoomService {
     private final TheaterRepository theaterRepository;
     private final SeatRepository seatRepository;
     private final ShowtimeRepository showtimeRepository;
+    private final PrimaryCinemaContext primaryCinemaContext;
 
     @Override
     @Transactional(readOnly = true)
     public List<RoomResponse> getActiveRoomsByTheaterId(Long theaterId) {
-        return roomRepository.findByTheaterIdAndIsActiveTrue(theaterId).stream()
+        Long targetTheaterId = theaterId != null ? theaterId : primaryCinemaContext.getPrimaryTheaterId();
+        return roomRepository.findByTheaterIdAndIsActiveTrue(targetTheaterId).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -41,20 +44,16 @@ public class RoomService implements IRoomService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<RoomResponse> getRoomsPaged(int pageNo, int pageSize, Long theaterId, String search) {
+        Long targetTheaterId = theaterId != null ? theaterId : primaryCinemaContext.getPrimaryTheaterId();
         Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by("id").descending());
         Page<Room> roomPage;
 
-        boolean hasTheater = theaterId != null;
         boolean hasSearch = search != null && !search.trim().isEmpty();
 
-        if (hasTheater && hasSearch) {
-            roomPage = roomRepository.findByTheaterIdAndNameContainingIgnoreCase(theaterId, search.trim(), pageable);
-        } else if (hasTheater) {
-            roomPage = roomRepository.findByTheaterId(theaterId, pageable);
-        } else if (hasSearch) {
-            roomPage = roomRepository.findByNameContainingIgnoreCase(search.trim(), pageable);
+        if (hasSearch) {
+            roomPage = roomRepository.findByTheaterIdAndNameContainingIgnoreCase(targetTheaterId, search.trim(), pageable);
         } else {
-            roomPage = roomRepository.findAll(pageable);
+            roomPage = roomRepository.findByTheaterId(targetTheaterId, pageable);
         }
 
         List<RoomResponse> content = roomPage.getContent().stream()
@@ -82,10 +81,11 @@ public class RoomService implements IRoomService {
     @Override
     @Transactional
     public RoomResponse createRoom(RoomRequest request) {
-        Theater theater = theaterRepository.findById(request.getTheaterId())
+        Long targetTheaterId = request.getTheaterId() != null ? request.getTheaterId() : primaryCinemaContext.getPrimaryTheaterId();
+        Theater theater = theaterRepository.findById(targetTheaterId)
                 .orElseThrow(() -> new RuntimeException("Rạp chiếu được chọn không tồn tại!"));
 
-        if (roomRepository.existsByNameAndTheaterId(request.getName(), request.getTheaterId())) {
+        if (roomRepository.existsByNameAndTheaterId(request.getName(), targetTheaterId)) {
             throw new RuntimeException("Tên phòng chiếu '" + request.getName() + "' đã tồn tại trong cơ sở rạp này!");
         }
 
@@ -106,10 +106,11 @@ public class RoomService implements IRoomService {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng chiếu với ID: " + id));
 
-        Theater theater = theaterRepository.findById(request.getTheaterId())
+        Long targetTheaterId = request.getTheaterId() != null ? request.getTheaterId() : primaryCinemaContext.getPrimaryTheaterId();
+        Theater theater = theaterRepository.findById(targetTheaterId)
                 .orElseThrow(() -> new RuntimeException("Rạp chiếu được chọn không tồn tại!"));
 
-        if (roomRepository.existsByNameAndTheaterIdAndIdNot(request.getName(), request.getTheaterId(), id)) {
+        if (roomRepository.existsByNameAndTheaterIdAndIdNot(request.getName(), targetTheaterId, id)) {
             throw new RuntimeException("Tên phòng chiếu '" + request.getName() + "' đã trùng với phòng khác trong cùng cơ sở!");
         }
 
@@ -123,6 +124,7 @@ public class RoomService implements IRoomService {
         Room updatedRoom = roomRepository.save(room);
         return mapToResponse(updatedRoom);
     }
+
 
     @Override
     @Transactional

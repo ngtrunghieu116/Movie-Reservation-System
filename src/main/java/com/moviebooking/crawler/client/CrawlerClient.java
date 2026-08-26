@@ -2,6 +2,7 @@ package com.moviebooking.crawler.client;
 
 import com.moviebooking.crawler.dto.MovieDetailDTO;
 import com.moviebooking.crawler.dto.MovieListItemDTO;
+import com.moviebooking.crawler.dto.ShowtimeItemDTO;
 
 import java.util.List;
 
@@ -20,4 +21,9 @@ public interface CrawlerClient {
      * Fetches detailed information for a specific movie using its detail URL.
      */
     MovieDetailDTO fetchMovieDetail(String detailUrl);
+
+    /**
+     * Fetches the list of raw showtimes (sessions) across multiple screening dates.
+     */
+    List<ShowtimeItemDTO> fetchShowtimeList();
 }
