@@ -30,6 +30,7 @@ public class BookingService {
     private final ReservedSeatRepository reservedSeatRepository;
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
+    private final TicketRepository ticketRepository;
 
     public void validateReservationModifiable(Reservation reservation) {
         if (reservation.getStatus() == ReservationStatus.CONFIRMED
@@ -221,5 +222,79 @@ public class BookingService {
                 .status(reservation.getStatus())
                 .expiresAt(reservation.getExpiresAt())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.moviebooking.dto.res.ReservationHistoryResponse> getBookingHistory(User currentUser) {
+        List<Reservation> reservations = reservationRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId());
+        List<com.moviebooking.dto.res.ReservationHistoryResponse> history = new ArrayList<>();
+        
+        for (Reservation res : reservations) {
+            List<ReservedSeat> rsList = reservedSeatRepository.findByReservationId(res.getId());
+            List<ReservedSeatDTO> seatDTOs = rsList.stream()
+                    .map(rs -> ReservedSeatDTO.builder()
+                            .seatId(rs.getSeat().getId())
+                            .rowName(rs.getSeat().getRowName())
+                            .seatNumber(rs.getSeat().getSeatNumber())
+                            .price(rs.getPrice())
+                            .build())
+                    .collect(Collectors.toList());
+                    
+            BigDecimal ticketSub = rsList.stream().map(ReservedSeat::getPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            List<OrderItem> items = orderItemRepository.findByReservationId(res.getId());
+            List<OrderItemResponse> itemDTOs = items.stream()
+                    .map(item -> OrderItemResponse.builder()
+                            .itemId(item.getId())
+                            .productId(item.getProduct().getId())
+                            .productName(item.getProduct().getName())
+                            .unitPrice(item.getUnitPrice())
+                            .quantity(item.getQuantity())
+                            .subtotal(item.getSubtotal())
+                            .build())
+                    .collect(Collectors.toList());
+                    
+            BigDecimal fnbSub = items.stream().map(OrderItem::getSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            Optional<Payment> payment = paymentRepository.findByReservationId(res.getId());
+            PaymentStatus pStatus = payment.map(Payment::getStatus).orElse(null);
+            
+            List<Ticket> tickets = ticketRepository.findByReservationId(res.getId());
+            List<com.moviebooking.dto.res.TicketResponse> ticketDTOs = tickets.stream()
+                    .map(ticket -> com.moviebooking.dto.res.TicketResponse.builder()
+                            .ticketCode(ticket.getTicketCode())
+                            .showtimeId(ticket.getShowtime().getId())
+                            .movieTitle(ticket.getShowtime().getMovie().getTitle())
+                            .theaterName(ticket.getShowtime().getRoom().getTheater().getName())
+                            .roomName(ticket.getShowtime().getRoom().getName())
+                            .startTime(ticket.getShowtime().getStartTime())
+                            .seatName(ticket.getSeat().getRowName() + ticket.getSeat().getSeatNumber())
+                            .price(ticket.getPrice())
+                            .status(ticket.getStatus())
+                            .qrCodeUrl(ticket.getQrCodeUrl())
+                            .checkedInAt(ticket.getCheckedInAt())
+                            .build())
+                    .collect(Collectors.toList());
+            
+            history.add(com.moviebooking.dto.res.ReservationHistoryResponse.builder()
+                    .reservationId(res.getId())
+                    .bookingCode(res.getBookingCode())
+                    .movieTitle(res.getShowtime().getMovie().getTitle())
+                    .theaterName(res.getShowtime().getRoom().getTheater().getName())
+                    .roomName(res.getShowtime().getRoom().getName())
+                    .showtimeStart(res.getShowtime().getStartTime())
+                    .status(res.getStatus())
+                    .paymentStatus(pStatus)
+                    .ticketSubtotal(ticketSub)
+                    .fnbSubtotal(fnbSub)
+                    .totalAmount(res.getTotalPrice())
+                    .createdAt(res.getCreatedAt())
+                    .ticketSeats(seatDTOs)
+                    .fnbItems(itemDTOs)
+                    .tickets(ticketDTOs)
+                    .build());
+        }
+        
+        return history;
     }
 }

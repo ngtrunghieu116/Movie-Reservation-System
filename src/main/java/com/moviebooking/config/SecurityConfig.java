@@ -30,9 +30,11 @@ public class SecurityConfig {
         private static final String[] WHITE_LIST_URL = {
                         "/api/auth/**",
                         "/api/public/**",
+                        "/api/payments/vnpay/**",
                         "/uploads/**",
                         "/error"
         };
+
 
 
         @Bean
@@ -51,6 +53,7 @@ public class SecurityConfig {
                                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/products/**").permitAll()
                                                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/admin/crawler/**").permitAll()
                                                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                                                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/tickets/*/check-in").hasRole("ADMIN")
                                                 .anyRequest().authenticated())
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))

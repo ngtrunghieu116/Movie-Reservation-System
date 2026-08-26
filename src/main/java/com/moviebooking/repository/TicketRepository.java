@@ -20,4 +20,10 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     List<Ticket> findByShowtimeIdAndStatus(Long showtimeId, TicketStatus status);
 
     boolean existsByTicketCode(String ticketCode);
+
+    Optional<Ticket> findByReservationIdAndSeatId(Long reservationId, Long seatId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT t FROM Ticket t WHERE t.ticketCode = :ticketCode")
+    Optional<Ticket> findByTicketCodeWithLock(@org.springframework.data.repository.query.Param("ticketCode") String ticketCode);
 }

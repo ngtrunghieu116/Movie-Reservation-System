@@ -50,4 +50,10 @@ public class ReservationController {
         User currentUser = securityUtils.getCurrentUser();
         return ResponseEntity.ok(bookingService.reviewReservation(reservationId, currentUser));
     }
+
+    @GetMapping("/history")
+    public ResponseEntity<java.util.List<com.moviebooking.dto.res.ReservationHistoryResponse>> getBookingHistory() {
+        User currentUser = securityUtils.getCurrentUser();
+        return ResponseEntity.ok(bookingService.getBookingHistory(currentUser));
+    }
 }

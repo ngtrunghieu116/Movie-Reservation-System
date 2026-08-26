@@ -134,6 +134,30 @@ public class GlobalExceptionHandler {
                 .body(Map.of("message", ex.getMessage()));
     }
 
+    @ExceptionHandler(TicketNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleTicketNotFound(TicketNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(TicketAlreadyCheckedInException.class)
+    public ResponseEntity<Map<String, String>> handleTicketAlreadyCheckedIn(TicketAlreadyCheckedInException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(TicketValidationException.class)
+    public ResponseEntity<Map<String, String>> handleTicketValidation(TicketValidationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(UnauthorizedTicketAccessException.class)
+    public ResponseEntity<Map<String, String>> handleUnauthorizedTicketAccess(UnauthorizedTicketAccessException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
 
     // 5. Xử lý tất cả các lỗi không mong muốn khác (System Error / 500)
     // Giúp bảo vệ hệ thống, log lỗi chi tiết ra console nhưng chỉ trả về thông báo

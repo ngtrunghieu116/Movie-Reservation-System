@@ -36,8 +36,11 @@ public class Ticket {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price; // Snapshot giá vé tại thời điểm bán
 
-    @Column(name = "qr_code_url", length = 500)
+    @Column(name = "qr_code_url", columnDefinition = "TEXT")
     private String qrCodeUrl; // Đường dẫn/dữ liệu mã QR Check-in
+
+    @Column(name = "checked_in_at")
+    private LocalDateTime checkedInAt;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

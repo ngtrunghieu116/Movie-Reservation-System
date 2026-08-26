@@ -31,6 +31,11 @@ public interface ShowtimeSeatRepository extends JpaRepository<ShowtimeSeat, Long
 
     List<ShowtimeSeat> findByReservationId(Long reservationId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT ss FROM ShowtimeSeat ss WHERE ss.reservation.id = :reservationId")
+    List<ShowtimeSeat> findByReservationIdWithLock(@Param("reservationId") Long reservationId);
+
+
     boolean existsByShowtimeId(Long showtimeId);
 
     long countByShowtimeIdAndStatus(Long showtimeId, ShowtimeSeatStatus status);
