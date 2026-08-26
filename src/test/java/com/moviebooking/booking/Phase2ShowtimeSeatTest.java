@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 class Phase2ShowtimeSeatTest {
 
+
+
     @Autowired
     private ShowtimeSeatService showtimeSeatService;
 
@@ -51,6 +53,18 @@ class Phase2ShowtimeSeatTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private ReservationRepository reservationRepository;
+
+    @Autowired
+    private ReservedSeatRepository reservedSeatRepository;
+
+    @Autowired
+    private OrderItemRepository orderItemRepository;
+
+    @Autowired
+    private PaymentRepository paymentRepository;
+
     private User userA;
     private User userB;
     private Room room50;
@@ -59,8 +73,13 @@ class Phase2ShowtimeSeatTest {
 
     @BeforeEach
     void setUp() {
+        orderItemRepository.deleteAll();
+        paymentRepository.deleteAll();
+        reservedSeatRepository.deleteAll();
+        reservationRepository.deleteAll();
         showtimeSeatRepository.deleteAll();
         showtimeRepository.deleteAll();
+
 
         userA = userRepository.findByEmail("usera_phase2@example.com").orElseGet(() ->
                 userRepository.save(User.builder()
@@ -131,11 +150,23 @@ class Phase2ShowtimeSeatTest {
         testMovie = movieRepository.findAll().stream().findFirst().orElseGet(() ->
                 movieRepository.save(Movie.builder()
                         .title("Test Movie Phase 2")
+                        .description("Mô tả phim test Phase 2")
                         .duration(120)
+                        .director("Director Test")
+                        .actors("Actor 1, Actor 2")
+                        .language("Tiếng Việt")
+                        .posterPath("/posters/test.jpg")
+                        .bannerPath("/banners/test.jpg")
+                        .ageRating(AgeRating.P)
                         .status(MovieStatus.NOW_SHOWING)
                         .releaseDate(java.time.LocalDate.now().minusDays(5))
+                        .endDate(java.time.LocalDate.now().plusDays(30))
                         .build())
         );
+
+
+
+
 
         futureShowtime = showtimeRepository.save(Showtime.builder()
                 .movie(testMovie)
@@ -576,8 +607,13 @@ class Phase2ShowtimeSeatTest {
 
     @org.junit.jupiter.api.AfterEach
     void tearDown() {
+        orderItemRepository.deleteAll();
+        paymentRepository.deleteAll();
+        reservedSeatRepository.deleteAll();
+        reservationRepository.deleteAll();
         showtimeSeatRepository.deleteAll();
         showtimeRepository.deleteAll();
+
         if (room50 != null && room50.getId() != null) {
             seatRepository.deleteAll(seatRepository.findByRoomIdOrderByRowNameAscSeatNumberAsc(room50.getId()));
             roomRepository.deleteById(room50.getId());

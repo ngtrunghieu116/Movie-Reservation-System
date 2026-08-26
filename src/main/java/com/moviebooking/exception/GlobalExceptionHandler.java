@@ -110,6 +110,31 @@ public class GlobalExceptionHandler {
                 .body(Map.of("message", ex.getMessage()));
     }
 
+    @ExceptionHandler(ProductInactiveException.class)
+    public ResponseEntity<Map<String, String>> handleProductInactive(ProductInactiveException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidQuantityException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidQuantity(InvalidQuantityException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ReservationNotModifiableException.class)
+    public ResponseEntity<Map<String, String>> handleReservationNotModifiable(ReservationNotModifiableException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(InsufficientInventoryException.class)
+    public ResponseEntity<Map<String, String>> handleInsufficientInventory(InsufficientInventoryException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", ex.getMessage()));
+    }
+
+
     // 5. Xử lý tất cả các lỗi không mong muốn khác (System Error / 500)
     // Giúp bảo vệ hệ thống, log lỗi chi tiết ra console nhưng chỉ trả về thông báo
     // thân thiện cho User
