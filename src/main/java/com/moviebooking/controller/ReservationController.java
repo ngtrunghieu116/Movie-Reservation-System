@@ -1,6 +1,7 @@
 package com.moviebooking.controller;
 
 import com.moviebooking.dto.req.AddComboRequest;
+import com.moviebooking.dto.req.CreateReservationRequest;
 import com.moviebooking.dto.req.UpdateComboQuantityRequest;
 import com.moviebooking.dto.res.ReservationReviewResponse;
 import com.moviebooking.model.User;
@@ -18,6 +19,13 @@ public class ReservationController {
 
     private final BookingService bookingService;
     private final SecurityUtils securityUtils;
+
+    @PostMapping
+    public ResponseEntity<ReservationReviewResponse> createReservation(
+            @Valid @RequestBody CreateReservationRequest request) {
+        User currentUser = securityUtils.getCurrentUser();
+        return ResponseEntity.ok(bookingService.createReservation(request, currentUser));
+    }
 
     @PostMapping("/{reservationId}/items")
     public ResponseEntity<ReservationReviewResponse> addComboToReservation(
