@@ -1,6 +1,7 @@
 package com.moviebooking.service.booking;
 
 import com.moviebooking.dto.req.AddComboRequest;
+import com.moviebooking.dto.req.CreateReservationRequest;
 import com.moviebooking.dto.req.UpdateComboQuantityRequest;
 import com.moviebooking.dto.res.OrderItemResponse;
 import com.moviebooking.dto.res.ReservationReviewResponse;
@@ -9,8 +10,10 @@ import com.moviebooking.exception.*;
 import com.moviebooking.model.*;
 import com.moviebooking.model.enums.PaymentStatus;
 import com.moviebooking.model.enums.ReservationStatus;
+import com.moviebooking.model.enums.ShowtimeSeatStatus;
 import com.moviebooking.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +35,129 @@ public class BookingService {
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
     private final TicketRepository ticketRepository;
+    private final ShowtimeRepository showtimeRepository;
+    private final ShowtimeSeatRepository showtimeSeatRepository;
+
+    @Transactional
+    public ReservationReviewResponse createReservation(CreateReservationRequest request, User currentUser) {
+        if (currentUser == null) {
+            throw new AccessDeniedException("Người dùng chưa đăng nhập hoặc phiên làm việc đã hết hạn");
+        }
+        if (request.getShowtimeId() == null) {
+            throw new ResourceNotFoundException("showtimeId không được để trống");
+        }
+        if (request.getSeatIds() == null || request.getSeatIds().isEmpty()) {
+            throw new InvalidSeatHoldException("Danh sách seatIds không được để trống");
+        }
+        if (request.getHoldToken() == null || request.getHoldToken().isBlank()) {
+            throw new InvalidSeatHoldException("holdToken không được để trống");
+        }
+
+        Showtime showtime = showtimeRepository.findById(request.getShowtimeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy suất chiếu với ID: " + request.getShowtimeId()));
+
+        if (Boolean.FALSE.equals(showtime.getIsActive())) {
+            throw new ShowtimeNotBookableException("Suất chiếu hiện đang bị vô hiệu hóa");
+        }
+        if (Boolean.FALSE.equals(showtime.getIsOnlineSelling())) {
+            throw new ShowtimeNotBookableException("Suất chiếu tạm dừng bán vé trực tuyến");
+        }
+        if (showtime.getStartTime().isBefore(LocalDateTime.now())) {
+            throw new ShowtimeNotBookableException("Suất chiếu đã bắt đầu hoặc đã qua giờ chiếu");
+        }
+
+        List<Long> sortedSeatIds = request.getSeatIds().stream()
+                .distinct()
+                .sorted()
+                .toList();
+
+        List<ShowtimeSeat> seats = showtimeSeatRepository.findByShowtimeIdAndSeatIdInWithLock(showtime.getId(), sortedSeatIds);
+
+        if (seats.size() != sortedSeatIds.size()) {
+            throw new InvalidSeatHoldException("Một số ghế yêu cầu không tồn tại trong suất chiếu này");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for (ShowtimeSeat ss : seats) {
+            if (ss.getStatus() == ShowtimeSeatStatus.SOLD) {
+                throw new SeatAlreadyReservedException("Ghế " + ss.getSeat().getRowName() + ss.getSeat().getSeatNumber() + " đã được bán");
+            }
+            if (ss.getStatus() != ShowtimeSeatStatus.HELD) {
+                throw new InvalidSeatHoldException("Ghế " + ss.getSeat().getRowName() + ss.getSeat().getSeatNumber() + " không ở trạng thái giữ chỗ");
+            }
+            if (!request.getHoldToken().equals(ss.getHoldToken())) {
+                throw new InvalidSeatHoldException("Mã holdToken không khớp cho ghế " + ss.getSeat().getRowName() + ss.getSeat().getSeatNumber());
+            }
+            if (ss.getHeldByUser() == null || !ss.getHeldByUser().getId().equals(currentUser.getId())) {
+                throw new SeatHoldOwnershipException("Bạn không có quyền thao tác trên ghế giữ chỗ của người dùng khác");
+            }
+            if (ss.getLockedUntil() == null || !ss.getLockedUntil().isAfter(now)) {
+                throw new InvalidSeatHoldException("Thời gian giữ ghế " + ss.getSeat().getRowName() + ss.getSeat().getSeatNumber() + " đã hết hạn");
+            }
+        }
+
+        // Idempotency check:
+        Long firstReservationId = seats.get(0).getReservation() != null ? seats.get(0).getReservation().getId() : null;
+        if (firstReservationId != null) {
+            boolean allSameReservation = seats.stream()
+                    .allMatch(ss -> ss.getReservation() != null && ss.getReservation().getId().equals(firstReservationId));
+            if (allSameReservation) {
+                Reservation existingReservation = reservationRepository.findById(firstReservationId)
+                        .orElse(null);
+                if (existingReservation != null
+                        && existingReservation.getUser() != null
+                        && existingReservation.getUser().getId().equals(currentUser.getId())
+                        && existingReservation.getStatus() == ReservationStatus.PENDING
+                        && existingReservation.getExpiresAt() != null
+                        && existingReservation.getExpiresAt().isAfter(now)) {
+                    return reviewReservation(existingReservation.getId(), currentUser);
+                }
+            }
+            throw new SeatAlreadyReservedException("Một số ghế đã được gắn vào một đơn hàng khác");
+        }
+
+        boolean anyHasReservation = seats.stream().anyMatch(ss -> ss.getReservation() != null);
+        if (anyHasReservation) {
+            throw new SeatAlreadyReservedException("Một số ghế đã được gắn vào một đơn hàng khác");
+        }
+
+        BigDecimal ticketTotal = seats.stream()
+                .map(ShowtimeSeat::getPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        LocalDateTime expiresAt = seats.get(0).getLockedUntil();
+        String bookingCode = "REV-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+
+        Reservation reservation = Reservation.builder()
+                .bookingCode(bookingCode)
+                .user(currentUser)
+                .showtime(showtime)
+                .totalPrice(ticketTotal)
+                .status(ReservationStatus.PENDING)
+                .expiresAt(expiresAt)
+                .build();
+
+        Reservation savedReservation = reservationRepository.save(reservation);
+
+        List<ReservedSeat> reservedSeats = new ArrayList<>();
+        for (ShowtimeSeat ss : seats) {
+            ReservedSeat rs = ReservedSeat.builder()
+                    .reservation(savedReservation)
+                    .seat(ss.getSeat())
+                    .price(ss.getPrice())
+                    .build();
+            reservedSeats.add(rs);
+
+            // Link ShowtimeSeat to Reservation without changing status (remains HELD)
+            ss.setReservation(savedReservation);
+        }
+
+        reservedSeatRepository.saveAll(reservedSeats);
+        showtimeSeatRepository.saveAll(seats);
+
+        return reviewReservation(savedReservation.getId(), currentUser);
+    }
 
     public void validateReservationModifiable(Reservation reservation) {
         if (reservation.getStatus() == ReservationStatus.CONFIRMED
