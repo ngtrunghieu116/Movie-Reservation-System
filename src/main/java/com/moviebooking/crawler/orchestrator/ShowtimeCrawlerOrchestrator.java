@@ -44,6 +44,8 @@ import java.util.Set;
  * - RULE-10: Price parsing with fallback to default policy (no genre pricing).
  * - RULE-11: Online selling status mapping.
  */
+import com.moviebooking.service.seat.ShowtimeSeatService;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -55,6 +57,8 @@ public class ShowtimeCrawlerOrchestrator {
     private final ReservationRepository reservationRepository;
     private final RoomResolver roomResolver;
     private final ShowtimePriceParser priceParser;
+    private final ShowtimeSeatService showtimeSeatService;
+
 
     @Value("${app.showtime.buffer-time-minutes:15}")
     private int bufferTimeMinutes = 15;
@@ -272,11 +276,14 @@ public class ShowtimeCrawlerOrchestrator {
                 .isOnlineSelling(dto.getIsOnlineSelling() != null ? dto.getIsOnlineSelling() : true)
                 .build();
 
-        showtimeRepository.save(newShowtime);
+        Showtime saved = showtimeRepository.save(newShowtime);
+        showtimeSeatService.initializeSeatsForShowtime(saved);
+
         log.info("[INFO] Showtime inserted sourceId='{}' movie='{}' room='{}' startTime={}",
                 dto.getSourceId(), movie.getTitle(), room.getName(), dto.getStartTime());
 
         return ProcessStatus.INSERTED;
+
     }
 
     /**
