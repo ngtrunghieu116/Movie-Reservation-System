@@ -13,6 +13,7 @@ import com.moviebooking.model.enums.ReservationStatus;
 import com.moviebooking.model.enums.ShowtimeSeatStatus;
 import com.moviebooking.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BookingService {
@@ -457,5 +459,44 @@ public class BookingService {
         }
 
         return history;
+    }
+
+    @Transactional
+    public int cleanupExpiredReservations() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Reservation> expiredReservations = reservationRepository.findExpiredPendingReservations(ReservationStatus.PENDING, now);
+        if (expiredReservations.isEmpty()) {
+            return 0;
+        }
+
+        int count = 0;
+        for (Reservation res : expiredReservations) {
+            res.setStatus(ReservationStatus.EXPIRED);
+            reservationRepository.save(res);
+
+            Optional<Payment> paymentOpt = paymentRepository.findByReservationId(res.getId());
+            if (paymentOpt.isPresent()) {
+                Payment payment = paymentOpt.get();
+                if (payment.getStatus() == PaymentStatus.PENDING) {
+                    payment.setStatus(PaymentStatus.FAILED);
+                    paymentRepository.save(payment);
+                }
+            }
+
+            List<ShowtimeSeat> seats = showtimeSeatRepository.findByReservationId(res.getId());
+            for (ShowtimeSeat ss : seats) {
+                if (ss.getStatus() == ShowtimeSeatStatus.HELD) {
+                    ss.setStatus(ShowtimeSeatStatus.AVAILABLE);
+                    ss.setHoldToken(null);
+                    ss.setHeldByUser(null);
+                    ss.setLockedUntil(null);
+                    ss.setReservation(null);
+                }
+            }
+            showtimeSeatRepository.saveAll(seats);
+            count++;
+            log.info("[RESERVATION_EXPIRED_CLEANUP] Expired reservationId={}, bookingCode={}", res.getId(), res.getBookingCode());
+        }
+        return count;
     }
 }

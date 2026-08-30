@@ -195,6 +195,10 @@ public class PaymentService {
         }
 
         Reservation reservation = payment.getReservation();
+        if (reservation.getStatus() == ReservationStatus.EXPIRED || reservation.getStatus() == ReservationStatus.CANCELLED) {
+            log.warn("[PAYMENT_REJECTED] VNPAY success callback arrived for EXPIRED/CANCELLED reservationId={}, status={}", reservation.getId(), reservation.getStatus());
+            throw new ReservationNotModifiableException("Đơn hàng đã bị hết hạn hoặc hủy, không thể xác nhận thanh toán.");
+        }
 
         // Lock order: 1. Payment -> 2. Products (sorted ascending) -> 3. ShowtimeSeats
         List<OrderItem> orderItems = orderItemRepository.findByReservationId(reservation.getId());

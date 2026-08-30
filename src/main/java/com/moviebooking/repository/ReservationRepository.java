@@ -24,6 +24,9 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             "ORDER BY r.createdAt DESC")
     List<Reservation> findSuccessfulReservationsByUserId(@org.springframework.data.repository.query.Param("userId") Long userId);
 
+    @org.springframework.data.jpa.repository.Query("SELECT r FROM Reservation r WHERE r.status = :pendingStatus AND r.expiresAt IS NOT NULL AND r.expiresAt < :now")
+    List<Reservation> findExpiredPendingReservations(@org.springframework.data.repository.query.Param("pendingStatus") com.moviebooking.model.enums.ReservationStatus pendingStatus, @org.springframework.data.repository.query.Param("now") java.time.LocalDateTime now);
+
     @org.springframework.data.jpa.repository.Query(
             value = "SELECT DISTINCT r FROM Reservation r " +
                     "LEFT JOIN FETCH r.user u " +
