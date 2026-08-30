@@ -42,4 +42,11 @@ public class PaymentController {
         Map<String, String> result = paymentService.processVnPayIpn(queryParams);
         return ResponseEntity.ok(result);
     }
+
+    @GetMapping("/status")
+    public ResponseEntity<com.moviebooking.dto.res.PaymentStatusDetailResponse> getPaymentStatus(
+            @RequestParam("orderId") String orderId) {
+        User currentUser = securityUtils.getCurrentUser();
+        return ResponseEntity.ok(paymentService.getPaymentStatusDetail(orderId, currentUser));
+    }
 }

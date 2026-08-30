@@ -424,4 +424,38 @@ public class BookingService {
         
         return history;
     }
+
+    @Transactional(readOnly = true)
+    public List<com.moviebooking.dto.res.UserBookingHistoryItemResponse> getMyBookingHistory(User currentUser) {
+        if (currentUser == null) {
+            throw new SeatHoldOwnershipException("Bạn chưa đăng nhập.");
+        }
+
+        List<Reservation> reservations = reservationRepository.findSuccessfulReservationsByUserId(currentUser.getId());
+        List<com.moviebooking.dto.res.UserBookingHistoryItemResponse> history = new ArrayList<>();
+
+        for (Reservation res : reservations) {
+            int ticketCount = reservedSeatRepository.countByReservationId(res.getId());
+            if (ticketCount == 0) {
+                List<Ticket> tickets = ticketRepository.findByReservationId(res.getId());
+                ticketCount = tickets.size();
+            }
+
+            String movieTitle = res.getShowtime() != null && res.getShowtime().getMovie() != null
+                    ? res.getShowtime().getMovie().getTitle()
+                    : "";
+
+            history.add(com.moviebooking.dto.res.UserBookingHistoryItemResponse.builder()
+                    .reservationId(res.getId())
+                    .orderId(res.getBookingCode())
+                    .transactionDate(res.getCreatedAt())
+                    .movieTitle(movieTitle)
+                    .transactionType("Mua online")
+                    .ticketCount(ticketCount)
+                    .totalAmount(res.getTotalPrice())
+                    .build());
+        }
+
+        return history;
+    }
 }

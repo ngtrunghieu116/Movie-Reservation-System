@@ -37,6 +37,7 @@ public class PaymentService {
     private final OrderItemRepository orderItemRepository;
     private final ShowtimeSeatRepository showtimeSeatRepository;
     private final ReservedSeatRepository reservedSeatRepository;
+    private final TicketRepository ticketRepository;
     private final BookingService bookingService;
     private final PaymentFailureHandler paymentFailureHandler;
     private final com.moviebooking.service.booking.TicketService ticketService;
@@ -326,5 +327,132 @@ public class PaymentService {
         }
 
         return bookingService.reviewReservation(payment.getReservation().getId(), currentUser);
+    }
+
+    @Transactional(readOnly = true)
+    public com.moviebooking.dto.res.PaymentStatusDetailResponse getPaymentStatusDetail(String orderId, User currentUser) {
+        if (currentUser == null) {
+            throw new SeatHoldOwnershipException("Bạn chưa đăng nhập.");
+        }
+
+        if (orderId == null || orderId.trim().isEmpty()) {
+            throw new ResourceNotFoundException("Mã đơn hàng không hợp lệ.");
+        }
+
+        String trimmedOrderId = orderId.trim();
+        Reservation reservation = null;
+
+        // 1. Try finding by bookingCode first
+        Optional<Reservation> resOpt = reservationRepository.findByBookingCode(trimmedOrderId);
+        if (resOpt.isPresent()) {
+            reservation = resOpt.get();
+        } else {
+            // 2. Try parsing numeric ID (for backward compatibility)
+            try {
+                Long id = Long.parseLong(trimmedOrderId);
+                reservation = reservationRepository.findById(id).orElse(null);
+            } catch (NumberFormatException ignored) {}
+        }
+
+        if (reservation == null) {
+            throw new ResourceNotFoundException("Không tìm thấy đơn đặt vé với mã: " + trimmedOrderId);
+        }
+
+        // 3. Security check: User must own this reservation
+        if (reservation.getUser() == null || !reservation.getUser().getId().equals(currentUser.getId())) {
+            throw new SeatHoldOwnershipException("Bạn không có quyền truy cập thông tin đơn đặt vé này.");
+        }
+
+        // 4. Fetch related domain models
+        Showtime showtime = reservation.getShowtime();
+        Movie movie = showtime != null ? showtime.getMovie() : null;
+        Room room = showtime != null ? showtime.getRoom() : null;
+        Theater theater = room != null ? room.getTheater() : null;
+
+        // Payment info
+        Optional<Payment> paymentOpt = paymentRepository.findByReservationId(reservation.getId());
+        Payment payment = paymentOpt.orElse(null);
+
+        // Reserved seats
+        List<ReservedSeat> rsList = reservedSeatRepository.findByReservationId(reservation.getId());
+        List<String> seatNames = rsList.stream()
+                .map(rs -> rs.getSeat().getRowName() + rs.getSeat().getSeatNumber())
+                .collect(Collectors.toList());
+
+        BigDecimal ticketSubtotal = rsList.stream()
+                .map(ReservedSeat::getPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Tickets list with QR Code
+        List<Ticket> tickets = ticketRepository.findByReservationId(reservation.getId());
+        List<com.moviebooking.dto.res.TicketResponse> ticketDTOs = tickets.stream()
+                .map(t -> com.moviebooking.dto.res.TicketResponse.builder()
+                        .ticketCode(t.getTicketCode())
+                        .showtimeId(t.getShowtime().getId())
+                        .movieTitle(movie != null ? movie.getTitle() : "")
+                        .theaterName(theater != null ? theater.getName() : "")
+                        .roomName(room != null ? room.getName() : "")
+                        .startTime(showtime != null ? showtime.getStartTime() : null)
+                        .seatName(t.getSeat().getRowName() + t.getSeat().getSeatNumber())
+                        .price(t.getPrice())
+                        .status(t.getStatus())
+                        .qrCodeUrl(t.getQrCodeUrl())
+                        .checkedInAt(t.getCheckedInAt())
+                        .build())
+                .collect(Collectors.toList());
+
+        // Order Items (F&B)
+        List<OrderItem> orderItems = orderItemRepository.findByReservationId(reservation.getId());
+        List<com.moviebooking.dto.res.OrderItemResponse> itemDTOs = orderItems.stream()
+                .map(item -> com.moviebooking.dto.res.OrderItemResponse.builder()
+                        .itemId(item.getId())
+                        .productId(item.getProduct().getId())
+                        .productName(item.getProduct().getName())
+                        .unitPrice(item.getUnitPrice())
+                        .quantity(item.getQuantity())
+                        .subtotal(item.getSubtotal())
+                        .build())
+                .collect(Collectors.toList());
+
+        BigDecimal fnbSubtotal = orderItems.stream()
+                .map(OrderItem::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        int ticketCount = rsList.isEmpty() ? tickets.size() : rsList.size();
+
+        return com.moviebooking.dto.res.PaymentStatusDetailResponse.builder()
+                .reservationId(reservation.getId())
+                .bookingCode(reservation.getBookingCode())
+                .orderId(reservation.getBookingCode())
+                .reservationStatus(reservation.getStatus())
+                .transactionDate(payment != null && payment.getPaidAt() != null ? payment.getPaidAt() : reservation.getCreatedAt())
+                .customerName(((currentUser.getFirstName() != null ? currentUser.getFirstName() : "") + " " + (currentUser.getLastName() != null ? currentUser.getLastName() : "")).trim())
+                .customerEmail(currentUser.getEmail())
+                .customerPhone(currentUser.getPhone())
+                .movieTitle(movie != null ? movie.getTitle() : "")
+                .posterPath(movie != null ? movie.getPosterPath() : null)
+                .ageRating(movie != null && movie.getAgeRating() != null ? movie.getAgeRating().name() : null)
+                .language(movie != null ? movie.getLanguage() : null)
+                .subtitle(movie != null ? movie.getSubtitle() : null)
+                .roomType(room != null && room.getRoomType() != null ? room.getRoomType().getDbValue() : "2D")
+                .showtimeStart(showtime != null ? showtime.getStartTime() : null)
+                .showtimeEnd(showtime != null ? showtime.getEndTime() : null)
+                .theaterName(theater != null ? theater.getName() : "")
+                .roomName(room != null ? room.getName() : "")
+                .ticketCount(ticketCount)
+                .seatNames(seatNames)
+                .tickets(ticketDTOs)
+                .fnbItems(itemDTOs)
+                .fnbSubtotal(fnbSubtotal)
+                .ticketSubtotal(ticketSubtotal)
+                .totalAmount(reservation.getTotalPrice())
+                .paymentMethod(payment != null ? payment.getPaymentMethod() : null)
+                .transactionNo(payment != null ? payment.getTransactionNo() : null)
+                .transactionRef(payment != null ? payment.getTransactionRef() : null)
+                .bankCode(payment != null ? payment.getBankCode() : null)
+                .amount(payment != null ? payment.getAmount() : reservation.getTotalPrice())
+                .paymentStatus(payment != null ? payment.getStatus() : null)
+                .paidAt(payment != null ? payment.getPaidAt() : null)
+                .build();
     }
 }
