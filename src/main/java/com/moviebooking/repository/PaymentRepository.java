@@ -13,6 +13,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Optional<Payment> findByReservationId(Long reservationId);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"reservation"})
     Optional<Payment> findByTransactionRef(String transactionRef);
 
     Optional<Payment> findByTransactionNo(String transactionNo);

@@ -605,6 +605,143 @@ class Phase2ShowtimeSeatTest {
         executor.shutdown();
     }
 
+    @Test
+    @DisplayName("TEST 18: First seat creates holdToken and second seat reuses holdToken with preserved expiresAt")
+    void testHoldTokenReuseAndPreservedExpiresAt() {
+        showtimeSeatService.initializeSeatsForShowtime(futureShowtime);
+        List<Seat> physicalSeats = seatRepository.findByRoomIdOrderByRowNameAscSeatNumberAsc(room50.getId());
+        Seat seatA1 = physicalSeats.get(0);
+        Seat seatA2 = physicalSeats.get(1);
+
+        // Step 1: Hold A1 (first seat, holdToken == null)
+        HoldSeatsRequest req1 = HoldSeatsRequest.builder()
+                .showtimeId(futureShowtime.getId())
+                .seatIds(List.of(seatA1.getId()))
+                .build();
+        HoldSeatsResponse res1 = showtimeSeatService.holdSeats(req1, userA);
+
+        assertNotNull(res1.getHoldToken());
+        assertNotNull(res1.getExpiresAt());
+        String sessionToken = res1.getHoldToken();
+        LocalDateTime originalExpiresAt = res1.getExpiresAt();
+
+        // Step 2: Hold A2 (second seat, reusing sessionToken)
+        HoldSeatsRequest req2 = HoldSeatsRequest.builder()
+                .showtimeId(futureShowtime.getId())
+                .seatIds(List.of(seatA2.getId()))
+                .holdToken(sessionToken)
+                .build();
+        HoldSeatsResponse res2 = showtimeSeatService.holdSeats(req2, userA);
+
+        // Verify both seats share identical holdToken and original expiresAt
+        assertEquals(sessionToken, res2.getHoldToken(), "Second seat must reuse the same holdToken");
+        assertEquals(originalExpiresAt.truncatedTo(java.time.temporal.ChronoUnit.MILLIS), res2.getExpiresAt().truncatedTo(java.time.temporal.ChronoUnit.MILLIS), "expiresAt must NOT be reset or extended");
+
+        ShowtimeSeat ss1 = showtimeSeatRepository.findByShowtimeIdAndSeatId(futureShowtime.getId(), seatA1.getId()).orElseThrow();
+        ShowtimeSeat ss2 = showtimeSeatRepository.findByShowtimeIdAndSeatId(futureShowtime.getId(), seatA2.getId()).orElseThrow();
+
+        assertEquals(ShowtimeSeatStatus.HELD, ss1.getStatus());
+        assertEquals(ShowtimeSeatStatus.HELD, ss2.getStatus());
+        assertEquals(sessionToken, ss1.getHoldToken());
+        assertEquals(sessionToken, ss2.getHoldToken());
+        assertEquals(originalExpiresAt.truncatedTo(java.time.temporal.ChronoUnit.MILLIS), ss1.getLockedUntil().truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
+        assertEquals(originalExpiresAt.truncatedTo(java.time.temporal.ChronoUnit.MILLIS), ss2.getLockedUntil().truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
+    }
+
+    @Test
+    @DisplayName("TEST 19: Releasing one seat keeps remaining seats held under the same holdToken")
+    void testReleasingOneSeatKeepsRemainingSeatsHeld() {
+        showtimeSeatService.initializeSeatsForShowtime(futureShowtime);
+        List<Seat> physicalSeats = seatRepository.findByRoomIdOrderByRowNameAscSeatNumberAsc(room50.getId());
+        Seat seatA1 = physicalSeats.get(0);
+        Seat seatA2 = physicalSeats.get(1);
+
+        // Hold A1 + A2
+        HoldSeatsResponse res1 = showtimeSeatService.holdSeats(HoldSeatsRequest.builder()
+                .showtimeId(futureShowtime.getId())
+                .seatIds(List.of(seatA1.getId()))
+                .build(), userA);
+
+        showtimeSeatService.holdSeats(HoldSeatsRequest.builder()
+                .showtimeId(futureShowtime.getId())
+                .seatIds(List.of(seatA2.getId()))
+                .holdToken(res1.getHoldToken())
+                .build(), userA);
+
+        // Release ONLY A1
+        showtimeSeatService.releaseSeats(ReleaseSeatsRequest.builder()
+                .showtimeId(futureShowtime.getId())
+                .seatIds(List.of(seatA1.getId()))
+                .holdToken(res1.getHoldToken())
+                .build(), userA);
+
+        ShowtimeSeat ss1 = showtimeSeatRepository.findByShowtimeIdAndSeatId(futureShowtime.getId(), seatA1.getId()).orElseThrow();
+        ShowtimeSeat ss2 = showtimeSeatRepository.findByShowtimeIdAndSeatId(futureShowtime.getId(), seatA2.getId()).orElseThrow();
+
+        assertEquals(ShowtimeSeatStatus.AVAILABLE, ss1.getStatus(), "Seat A1 must be AVAILABLE after release");
+        assertNull(ss1.getHoldToken(), "Seat A1 holdToken must be cleared");
+
+        assertEquals(ShowtimeSeatStatus.HELD, ss2.getStatus(), "Seat A2 must still be HELD");
+        assertEquals(res1.getHoldToken(), ss2.getHoldToken(), "Seat A2 must still have the holdToken");
+    }
+
+    @Test
+    @DisplayName("TEST 20: Expired hold session cannot be reused to hold new seats")
+    void testExpiredHoldSessionCannotBeReused() {
+        showtimeSeatService.initializeSeatsForShowtime(futureShowtime);
+        List<Seat> physicalSeats = seatRepository.findByRoomIdOrderByRowNameAscSeatNumberAsc(room50.getId());
+        Seat seatA1 = physicalSeats.get(0);
+        Seat seatA2 = physicalSeats.get(1);
+
+        // Hold A1
+        HoldSeatsResponse res1 = showtimeSeatService.holdSeats(HoldSeatsRequest.builder()
+                .showtimeId(futureShowtime.getId())
+                .seatIds(List.of(seatA1.getId()))
+                .build(), userA);
+
+        // Manually expire A1 in DB
+        ShowtimeSeat ss1 = showtimeSeatRepository.findByShowtimeIdAndSeatId(futureShowtime.getId(), seatA1.getId()).orElseThrow();
+        ss1.setLockedUntil(LocalDateTime.now().minusMinutes(5));
+        showtimeSeatRepository.save(ss1);
+
+        // Attempt to hold A2 using expired holdToken
+        HoldSeatsRequest req2 = HoldSeatsRequest.builder()
+                .showtimeId(futureShowtime.getId())
+                .seatIds(List.of(seatA2.getId()))
+                .holdToken(res1.getHoldToken())
+                .build();
+
+        assertThrows(InvalidSeatHoldException.class, () -> {
+            showtimeSeatService.holdSeats(req2, userA);
+        }, "Must reject reusing an expired hold session");
+    }
+
+    @Test
+    @DisplayName("TEST 21: Cannot reuse another user's holdToken")
+    void testCannotReuseAnotherUserHoldToken() {
+        showtimeSeatService.initializeSeatsForShowtime(futureShowtime);
+        List<Seat> physicalSeats = seatRepository.findByRoomIdOrderByRowNameAscSeatNumberAsc(room50.getId());
+        Seat seatA1 = physicalSeats.get(0);
+        Seat seatA2 = physicalSeats.get(1);
+
+        // User A holds A1
+        HoldSeatsResponse resA = showtimeSeatService.holdSeats(HoldSeatsRequest.builder()
+                .showtimeId(futureShowtime.getId())
+                .seatIds(List.of(seatA1.getId()))
+                .build(), userA);
+
+        // User B tries to use User A's holdToken
+        HoldSeatsRequest reqB = HoldSeatsRequest.builder()
+                .showtimeId(futureShowtime.getId())
+                .seatIds(List.of(seatA2.getId()))
+                .holdToken(resA.getHoldToken())
+                .build();
+
+        assertThrows(SeatHoldOwnershipException.class, () -> {
+            showtimeSeatService.holdSeats(reqB, userB);
+        }, "User B must NOT be able to reuse User A's holdToken");
+    }
+
     @org.junit.jupiter.api.AfterEach
     void tearDown() {
         orderItemRepository.deleteAll();

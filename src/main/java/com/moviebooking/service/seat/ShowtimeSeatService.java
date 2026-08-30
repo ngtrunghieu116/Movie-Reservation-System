@@ -31,8 +31,8 @@ public class ShowtimeSeatService {
     private final ShowtimeRepository showtimeRepository;
     private final SeatRepository seatRepository;
 
-    @Value("${booking.seat-hold-minutes:8}")
-    private int seatHoldMinutes = 8;
+    @Value("${booking.seat-hold-minutes:10}")
+    private int seatHoldMinutes = 10;
 
     /**
      * Initializes ShowtimeSeat inventory for a given Showtime.
@@ -142,15 +142,48 @@ public class ShowtimeSeatService {
                 throw new SeatAlreadyReservedException("Ghế " + ss.getSeat().getRowName() + ss.getSeat().getSeatNumber() + " đã được bán");
             }
             if (currentStatus == ShowtimeSeatStatus.HELD) {
+                if (request.getHoldToken() != null
+                        && request.getHoldToken().trim().equals(ss.getHoldToken())
+                        && ss.getHeldByUser() != null
+                        && ss.getHeldByUser().getId().equals(currentUser.getId())
+                        && ss.getLockedUntil() != null
+                        && ss.getLockedUntil().isAfter(now)) {
+                    // Already held by the same user in this active hold session
+                    continue;
+                }
                 if (ss.getLockedUntil() != null && ss.getLockedUntil().isAfter(now)) {
                     throw new SeatAlreadyReservedException("Ghế " + ss.getSeat().getRowName() + ss.getSeat().getSeatNumber() + " đang được người khác giữ chỗ");
                 }
             }
         }
 
-        // All seats are available or expired-held. Lock them now atomically.
-        String holdToken = UUID.randomUUID().toString();
-        LocalDateTime expiresAt = now.plusMinutes(seatHoldMinutes);
+        // Determine holdToken and expiresAt
+        String holdToken;
+        LocalDateTime expiresAt;
+
+        if (request.getHoldToken() != null && !request.getHoldToken().isBlank()) {
+            String existingToken = request.getHoldToken().trim();
+            List<ShowtimeSeat> existingHeldSeats = showtimeSeatRepository.findByShowtimeIdAndHoldToken(showtime.getId(), existingToken);
+
+            if (existingHeldSeats.isEmpty()) {
+                throw new InvalidSeatHoldException("Phiên giữ ghế không tồn tại hoặc đã bị hủy");
+            }
+
+            ShowtimeSeat sampleSeat = existingHeldSeats.get(0);
+            if (sampleSeat.getHeldByUser() == null || !sampleSeat.getHeldByUser().getId().equals(currentUser.getId())) {
+                throw new SeatHoldOwnershipException("Bạn không có quyền thao tác trên phiên giữ ghế của người dùng khác");
+            }
+            if (sampleSeat.getLockedUntil() == null || !sampleSeat.getLockedUntil().isAfter(now)) {
+                throw new InvalidSeatHoldException("Phiên giữ ghế đã hết hạn");
+            }
+
+            holdToken = existingToken;
+            expiresAt = sampleSeat.getLockedUntil(); // Preserve original expiresAt, never reset countdown!
+        } else {
+            // First seat: generate new holdToken and calculate expiresAt
+            holdToken = UUID.randomUUID().toString();
+            expiresAt = now.plusMinutes(seatHoldMinutes);
+        }
 
         for (ShowtimeSeat ss : seats) {
             ss.setStatus(ShowtimeSeatStatus.HELD);

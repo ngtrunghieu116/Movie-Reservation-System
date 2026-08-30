@@ -16,4 +16,6 @@ public class HoldSeatsRequest {
 
     @NotEmpty(message = "Danh sách seatIds không được để trống")
     private List<Long> seatIds;
+
+    private String holdToken;
 }

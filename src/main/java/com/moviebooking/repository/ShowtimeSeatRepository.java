@@ -22,6 +22,8 @@ public interface ShowtimeSeatRepository extends JpaRepository<ShowtimeSeat, Long
 
     List<ShowtimeSeat> findByShowtimeIdAndSeatIdIn(Long showtimeId, List<Long> seatIds);
 
+    List<ShowtimeSeat> findByShowtimeIdAndHoldToken(Long showtimeId, String holdToken);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT ss FROM ShowtimeSeat ss WHERE ss.showtime.id = :showtimeId AND ss.seat.id IN :seatIds")
     List<ShowtimeSeat> findByShowtimeIdAndSeatIdInWithLock(

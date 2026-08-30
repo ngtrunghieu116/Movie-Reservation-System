@@ -36,9 +36,14 @@ public class PaymentService {
     private final ProductRepository productRepository;
     private final OrderItemRepository orderItemRepository;
     private final ShowtimeSeatRepository showtimeSeatRepository;
+    private final ReservedSeatRepository reservedSeatRepository;
     private final BookingService bookingService;
     private final PaymentFailureHandler paymentFailureHandler;
     private final com.moviebooking.service.booking.TicketService ticketService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private PaymentService self;
 
     @Transactional
     public CreatePaymentResponse createPaymentUrl(Long reservationId, User currentUser, String clientIp) {
@@ -160,32 +165,19 @@ public class PaymentService {
 
         // 4. Case VNPAY ResponseCode != "00" (Payment Failed at gateway)
         if (!"00".equals(responseCode)) {
-            payment.setStatus(PaymentStatus.FAILED);
-            payment.setTransactionNo(transactionNo);
-            payment.setBankCode(bankCode);
-            paymentRepository.saveAndFlush(payment);
-            paymentFailureHandler.recordPaymentFailure(payment.getId(), transactionNo, bankCode, "VNPAY ResponseCode=" + responseCode);
+            self.executePaymentCancelOrFailure(payment.getId(), transactionNo, bankCode, responseCode, "VNPAY ResponseCode=" + responseCode);
             log.info("[VNPAY_IPN] Payment failed for txnRef {} with ResponseCode {}", txnRef, responseCode);
             return Map.of("RspCode", "00", "Message", "Confirm Success");
         }
 
         // 5. Case VNPAY ResponseCode == "00" -> Execute Primary Booking Confirmation
         try {
-            confirmPrimaryBookingTransaction(payment.getId(), txnRef, transactionNo, bankCode);
+            self.confirmPrimaryBookingTransaction(payment.getId(), txnRef, transactionNo, bankCode);
             log.info("[VNPAY_IPN] Successfully confirmed booking for txnRef {}", txnRef);
             return Map.of("RspCode", "00", "Message", "Confirm Success");
         } catch (Exception ex) {
             log.error("[VNPAY_PAID_BUT_LOCAL_PROCESSING_FAILED] VNPAY paid for txnRef {}, but local confirmation failed: {}", txnRef, ex.getMessage(), ex);
-            payment.setStatus(PaymentStatus.FAILED);
-            payment.setTransactionNo(transactionNo);
-            payment.setBankCode(bankCode);
-            paymentRepository.saveAndFlush(payment);
-            // Record Payment FAILED in an independent REQUIRES_NEW transaction
-            try {
-                paymentFailureHandler.recordPaymentFailure(payment.getId(), transactionNo, bankCode, "VNPAY_PAID_BUT_LOCAL_PROCESSING_FAILED: " + ex.getMessage());
-            } catch (Exception e) {
-                log.warn("REQUIRES_NEW failure handler fallback: {}", e.getMessage());
-            }
+            self.executePaymentCancelOrFailure(payment.getId(), transactionNo, bankCode, responseCode, "Local processing failed: " + ex.getMessage());
             return Map.of("RspCode", "02", "Message", "Order confirm failed");
         }
 
@@ -233,6 +225,13 @@ public class PaymentService {
         // Lock ShowtimeSeats with PESSIMISTIC_WRITE
         List<ShowtimeSeat> showtimeSeats = showtimeSeatRepository.findByReservationIdWithLock(reservation.getId());
         if (showtimeSeats.isEmpty()) {
+            List<ReservedSeat> rsList = reservedSeatRepository.findByReservationId(reservation.getId());
+            List<Long> seatIds = rsList.stream().map(rs -> rs.getSeat().getId()).collect(Collectors.toList());
+            if (!seatIds.isEmpty()) {
+                showtimeSeats = showtimeSeatRepository.findByShowtimeIdAndSeatIdInWithLock(reservation.getShowtime().getId(), seatIds);
+            }
+        }
+        if (showtimeSeats.isEmpty()) {
             throw new InvalidSeatHoldException("Không tìm thấy ghế giữ chỗ cho đơn hàng ID: " + reservation.getId());
         }
 
@@ -243,6 +242,7 @@ public class PaymentService {
             // Transition HELD -> SOLD
             ss.setStatus(ShowtimeSeatStatus.SOLD);
             ss.setLockedUntil(null);
+            ss.setReservation(reservation);
         }
         showtimeSeatRepository.saveAll(showtimeSeats);
 
@@ -260,6 +260,43 @@ public class PaymentService {
         paymentRepository.save(payment);
     }
 
+    @Transactional
+    public void executePaymentCancelOrFailure(Long paymentId, String transactionNo, String bankCode, String responseCode, String reason) {
+        Payment payment = paymentRepository.findById(paymentId).orElse(null);
+        if (payment == null) return;
+        if (payment.getStatus() == PaymentStatus.COMPLETED) return;
+
+        payment.setStatus(PaymentStatus.FAILED);
+        if (transactionNo != null) payment.setTransactionNo(transactionNo);
+        if (bankCode != null) payment.setBankCode(bankCode);
+        paymentRepository.save(payment);
+
+        Reservation reservation = payment.getReservation();
+        if (reservation.getStatus() != ReservationStatus.CANCELLED && reservation.getStatus() != ReservationStatus.CONFIRMED) {
+            reservation.setStatus(ReservationStatus.CANCELLED);
+            reservationRepository.save(reservation);
+
+            List<ShowtimeSeat> seats = showtimeSeatRepository.findByReservationId(reservation.getId());
+            for (ShowtimeSeat ss : seats) {
+                if (ss.getStatus() == ShowtimeSeatStatus.HELD) {
+                    ss.setStatus(ShowtimeSeatStatus.AVAILABLE);
+                    ss.setHoldToken(null);
+                    ss.setHeldByUser(null);
+                    ss.setLockedUntil(null);
+                    ss.setReservation(null);
+                }
+            }
+            showtimeSeatRepository.saveAll(seats);
+            log.info("[SEATS_RELEASED_INSTANTLY] Đã mở lại {} ghế cho đơn hủy ID: {}", seats.size(), reservation.getId());
+        }
+        
+        try {
+            paymentFailureHandler.recordPaymentFailure(paymentId, transactionNo, bankCode, reason);
+        } catch (Exception e) {
+            log.warn("Failure handler fallback: {}", e.getMessage());
+        }
+    }
+
     public ReservationReviewResponse processVnPayReturn(Map<String, String> queryParams, User currentUser) {
         boolean validChecksum = VnPayUtil.verifySignature(queryParams, vnPayConfig.getHashSecret());
         if (!validChecksum) {
@@ -269,6 +306,24 @@ public class PaymentService {
         String txnRef = queryParams.get("vnp_TxnRef");
         Payment payment = paymentRepository.findByTransactionRef(txnRef)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giao dịch thanh toán: " + txnRef));
+
+        String responseCode = queryParams.get("vnp_ResponseCode");
+        String transactionNo = queryParams.get("vnp_TransactionNo");
+        String bankCode = queryParams.get("vnp_BankCode");
+
+        // Orchestrate using self to ensure transaction proxy is applied
+        if ("00".equals(responseCode)) {
+            try {
+                self.confirmPrimaryBookingTransaction(payment.getId(), txnRef, transactionNo, bankCode);
+                log.info("[VNPAY_RETURN] Successfully confirmed booking for txnRef {}", txnRef);
+            } catch (Exception ex) {
+                log.error("[VNPAY_RETURN] Confirmation failed for txnRef {}: {}", txnRef, ex.getMessage(), ex);
+                self.executePaymentCancelOrFailure(payment.getId(), transactionNo, bankCode, responseCode, "Confirmation Failed: " + ex.getMessage());
+            }
+        } else {
+            self.executePaymentCancelOrFailure(payment.getId(), transactionNo, bankCode, responseCode, "VNPAY Return ResponseCode=" + responseCode);
+            log.info("[VNPAY_RETURN] Payment failed/cancelled for txnRef {} with ResponseCode {}", txnRef, responseCode);
+        }
 
         return bookingService.reviewReservation(payment.getReservation().getId(), currentUser);
     }

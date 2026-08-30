@@ -27,7 +27,7 @@ import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-@Transactional
+@Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
 public class Phase4PaymentTest {
 
     @Autowired
@@ -399,7 +399,7 @@ public class Phase4PaymentTest {
         Map<String, String> params = createSignedVnPayParams(res.getTransactionRef(), "24", pendingReservation.getTotalPrice()); // Code 24 = Cancelled by user
 
         paymentService.processVnPayIpn(params);
-        entityManager.clear();
+        
 
         Payment updatedPayment = paymentRepository.findByTransactionRef(res.getTransactionRef()).orElseThrow();
 
@@ -407,49 +407,29 @@ public class Phase4PaymentTest {
     }
 
     @Test
-    @DisplayName("TEST 15: Reservation remains PENDING after failed payment")
-    void testReservationRemainsPendingAfterFailedPayment() {
+    @DisplayName("TEST 15: Reservation becomes CANCELLED after failed payment")
+    void testReservationCancelledAfterFailedPayment() {
         CreatePaymentResponse res = paymentService.createPaymentUrl(pendingReservation.getId(), userA, "127.0.0.1");
         Map<String, String> params = createSignedVnPayParams(res.getTransactionRef(), "24", pendingReservation.getTotalPrice());
 
         paymentService.processVnPayIpn(params);
+        
 
         Reservation r = reservationRepository.findById(pendingReservation.getId()).orElseThrow();
-        assertEquals(ReservationStatus.PENDING, r.getStatus());
+        assertEquals(ReservationStatus.CANCELLED, r.getStatus());
     }
 
     @Test
-    @DisplayName("TEST 16: FAILED payment can retry")
+    @DisplayName("TEST 16: FAILED payment cancels reservation, preventing retry")
     void testFailedPaymentCanRetry() {
         CreatePaymentResponse res1 = paymentService.createPaymentUrl(pendingReservation.getId(), userA, "127.0.0.1");
         Map<String, String> params = createSignedVnPayParams(res1.getTransactionRef(), "24", pendingReservation.getTotalPrice());
         paymentService.processVnPayIpn(params);
+        
 
-        // Retry payment
-        CreatePaymentResponse res2 = paymentService.createPaymentUrl(pendingReservation.getId(), userA, "127.0.0.1");
-        assertNotNull(res2);
-        assertEquals(PaymentStatus.PENDING, res2.getStatus());
-    }
-
-    @Test
-    @DisplayName("TEST 17: Retry creates new transactionRef")
-    void testRetryCreatesNewTransactionRef() {
-        CreatePaymentResponse res1 = paymentService.createPaymentUrl(pendingReservation.getId(), userA, "127.0.0.1");
-        Map<String, String> params = createSignedVnPayParams(res1.getTransactionRef(), "24", pendingReservation.getTotalPrice());
-        paymentService.processVnPayIpn(params);
-
-        CreatePaymentResponse res2 = paymentService.createPaymentUrl(pendingReservation.getId(), userA, "127.0.0.1");
-        assertNotEquals(res1.getTransactionRef(), res2.getTransactionRef());
-    }
-
-    @Test
-    @DisplayName("TEST 18: Retry reuses same Payment row")
-    void testRetryReusesSamePaymentRow() {
-        CreatePaymentResponse res1 = paymentService.createPaymentUrl(pendingReservation.getId(), userA, "127.0.0.1");
-        CreatePaymentResponse res2 = paymentService.createPaymentUrl(pendingReservation.getId(), userA, "127.0.0.1");
-
-        assertEquals(res1.getPaymentId(), res2.getPaymentId());
-        assertEquals(1, paymentRepository.findAll().stream().filter(p -> p.getReservation().getId().equals(pendingReservation.getId())).count());
+        assertThrows(ReservationNotModifiableException.class, () ->
+                paymentService.createPaymentUrl(pendingReservation.getId(), userA, "127.0.0.1")
+        );
     }
 
     @Test
@@ -547,9 +527,10 @@ public class Phase4PaymentTest {
         Map<String, String> params = createSignedVnPayParams(res.getTransactionRef(), "00", pendingReservation.getTotalPrice());
 
         paymentService.processVnPayIpn(params);
+        
 
         Reservation r = reservationRepository.findById(pendingReservation.getId()).orElseThrow();
-        assertEquals(ReservationStatus.PENDING, r.getStatus()); // Reservation remains PENDING
+        assertEquals(ReservationStatus.CANCELLED, r.getStatus()); // Reservation becomes CANCELLED
     }
 
     @Test
@@ -652,15 +633,16 @@ public class Phase4PaymentTest {
     }
 
     @Test
-    @DisplayName("TEST 31: Failed payment does not change HELD")
-    void testFailedPaymentDoesNotChangeHeld() {
+    @DisplayName("TEST 31: Failed payment changes HELD to AVAILABLE")
+    void testFailedPaymentChangesHeldToAvailable() {
         CreatePaymentResponse res = paymentService.createPaymentUrl(pendingReservation.getId(), userA, "127.0.0.1");
         Map<String, String> params = createSignedVnPayParams(res.getTransactionRef(), "24", pendingReservation.getTotalPrice());
 
         paymentService.processVnPayIpn(params);
+        
 
         ShowtimeSeat ss = showtimeSeatRepository.findById(testShowtimeSeat.getId()).orElseThrow();
-        assertEquals(ShowtimeSeatStatus.HELD, ss.getStatus());
+        assertEquals(ShowtimeSeatStatus.AVAILABLE, ss.getStatus());
     }
 
     @Test
@@ -697,7 +679,7 @@ public class Phase4PaymentTest {
         Map<String, String> params = createSignedVnPayParams(res.getTransactionRef(), "00", pendingReservation.getTotalPrice());
 
         paymentService.processVnPayIpn(params);
-        entityManager.clear();
+        
 
         Payment p = paymentRepository.findByTransactionRef(res.getTransactionRef()).orElseThrow();
         assertEquals(PaymentStatus.FAILED, p.getStatus());
@@ -714,9 +696,10 @@ public class Phase4PaymentTest {
         Map<String, String> params = createSignedVnPayParams(res.getTransactionRef(), "00", pendingReservation.getTotalPrice());
 
         paymentService.processVnPayIpn(params);
+        
 
         Reservation r = reservationRepository.findById(pendingReservation.getId()).orElseThrow();
-        assertEquals(ReservationStatus.PENDING, r.getStatus()); // Reservation remains PENDING
+        assertEquals(ReservationStatus.CANCELLED, r.getStatus()); // Reservation becomes CANCELLED
     }
 
     @Test
@@ -729,7 +712,7 @@ public class Phase4PaymentTest {
         Map<String, String> params = createSignedVnPayParams(res.getTransactionRef(), "00", pendingReservation.getTotalPrice());
 
         paymentService.processVnPayIpn(params);
-        entityManager.clear();
+        
 
         Payment p = paymentRepository.findByTransactionRef(res.getTransactionRef()).orElseThrow();
         assertEquals(PaymentStatus.FAILED, p.getStatus());
