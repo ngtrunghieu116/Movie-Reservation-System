@@ -107,7 +107,14 @@ public class AdminBookingService {
 
             List<String> seats = seatNamesMap.getOrDefault(r.getId(), Collections.emptyList());
             Payment payment = paymentMap.get(r.getId());
-            PaymentStatus pStatus = payment != null ? payment.getStatus() : PaymentStatus.PENDING;
+            PaymentStatus pStatus;
+            if (payment != null) {
+                pStatus = payment.getStatus();
+            } else if (r.getStatus() == ReservationStatus.EXPIRED || r.getStatus() == ReservationStatus.CANCELLED) {
+                pStatus = PaymentStatus.FAILED;
+            } else {
+                pStatus = PaymentStatus.PENDING;
+            }
 
             return AdminBookingListItemResponse.builder()
                     .reservationId(r.getId())
@@ -226,7 +233,7 @@ public class AdminBookingService {
                 .transactionNo(payment != null ? payment.getTransactionNo() : null)
                 .bankCode(payment != null ? payment.getBankCode() : null)
                 .amount(payment != null ? payment.getAmount() : null)
-                .paymentStatus(payment != null ? payment.getStatus() : PaymentStatus.PENDING)
+                .paymentStatus(payment != null ? payment.getStatus() : (reservation.getStatus() == ReservationStatus.EXPIRED || reservation.getStatus() == ReservationStatus.CANCELLED ? PaymentStatus.FAILED : PaymentStatus.PENDING))
                 .paidAt(payment != null ? payment.getPaidAt() : null)
                 .totalAmount(reservation.getTotalPrice())
                 .tickets(ticketDetails)
