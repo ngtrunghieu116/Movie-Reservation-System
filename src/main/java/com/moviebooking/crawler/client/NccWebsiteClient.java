@@ -309,6 +309,7 @@ public class NccWebsiteClient implements CrawlerClient {
             String filmName = parseTitle(filmNode);
             String filmNameEn = filmNode.path("FilmNameEn").asText("");
             String imageUrl = parsePosterUrl(filmNode);
+            String bannerUrl = parseBannerUrl(filmNode);
             LocalDate premieredDay = parseReleaseDate(filmNode);
             String ageRating = parseAgeRatingRaw(filmNode);
             
@@ -319,6 +320,7 @@ public class NccWebsiteClient implements CrawlerClient {
                     .title(filmName)
                     .titleEn(filmNameEn.isBlank() ? null : filmNameEn)
                     .posterUrl(imageUrl)
+                    .bannerUrl(bannerUrl)
                     .releaseDate(premieredDay)
                     .ageRatingRaw(ageRating)
                     .detailUrl(sourceId) // Used as cache key for detail lookup
@@ -393,6 +395,15 @@ public class NccWebsiteClient implements CrawlerClient {
 
     private String parsePosterUrl(JsonNode filmNode) {
         return filmNode.path("ImageUrl").asText("");
+    }
+
+    private String parseBannerUrl(JsonNode filmNode) {
+        String banner = filmNode.path("BannerUrl").asText("").trim();
+        if (banner.isBlank() || banner.equals("null") || banner.equals(".")) {
+            // Fallback to ImageUrl if BannerUrl is absent
+            banner = filmNode.path("ImageUrl").asText("").trim();
+        }
+        return (banner.isBlank() || banner.equals("null") || banner.equals(".")) ? null : banner;
     }
 
     private LocalDate parseReleaseDate(JsonNode filmNode) {

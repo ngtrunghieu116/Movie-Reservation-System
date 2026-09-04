@@ -19,6 +19,7 @@ public class MovieListItemDTO {
     private String title;
     private String titleEn;
     private String posterUrl;
+    private String bannerUrl;
     private LocalDate releaseDate;
     private String ageRatingRaw;
     
