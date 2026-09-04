@@ -9,6 +9,8 @@ import com.moviebooking.model.Movie;
 import com.moviebooking.model.enums.MovieStatus;
 import com.moviebooking.repository.GenreRepository;
 import com.moviebooking.repository.MovieRepository;
+import com.moviebooking.repository.ReviewRepository;
+import com.moviebooking.model.enums.ReviewStatus;
 import com.moviebooking.service.file.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ public class MovieService implements IMovieService {
     private final MovieRepository movieRepository;
     private final GenreRepository genreRepository;
     private final FileStorageService fileStorageService;
+    private final ReviewRepository reviewRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -221,6 +224,19 @@ public class MovieService implements IMovieService {
                         .build())
                 .collect(Collectors.toList());
 
+        Double avgRating = 5.0;
+        if (movie.getId() != null) {
+            List<Object[]> avgResult = reviewRepository.getAverageRatingAndCount(movie.getId(), ReviewStatus.PUBLISHED);
+            if (avgResult != null && !avgResult.isEmpty() && avgResult.get(0) != null) {
+                Object[] row = avgResult.get(0);
+                Long count = (row.length > 1 && row[1] != null) ? ((Number) row[1]).longValue() : 0L;
+                if (count > 0 && row[0] != null) {
+                    avgRating = ((Number) row[0]).doubleValue();
+                    avgRating = Math.round(avgRating * 10.0) / 10.0;
+                }
+            }
+        }
+
         return MovieResponse.builder()
                 .id(movie.getId())
                 .title(movie.getTitle())
@@ -239,7 +255,7 @@ public class MovieService implements IMovieService {
                 .subtitle(movie.getSubtitle())
                 .status(movie.getStatus())
                 .genres(genreResponses)
-                .averageRating(5.0) // Default rating placeholder until Review module
+                .averageRating(avgRating)
                 .build();
     }
 }

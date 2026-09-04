@@ -37,6 +37,19 @@ public class MovieEnricher {
                 movie.setPosterPath(listItem.getPosterUrl());
             }
         }
+
+        // Enrich Media (Banner) - Only if banner is not set yet
+        if (movie.getBannerPath() == null || movie.getBannerPath().isBlank()) {
+            if (listItem.getBannerUrl() != null && !listItem.getBannerUrl().isBlank()) {
+                MediaUploadResult bannerResult = mediaStorage.uploadFromUrl(listItem.getBannerUrl());
+                if (bannerResult.success()) {
+                    movie.setBannerPath(bannerResult.url());
+                } else {
+                    log.warn("Failed to upload banner for movie: {}. Fallback to original URL.", movie.getTitle());
+                    movie.setBannerPath(listItem.getBannerUrl());
+                }
+            }
+        }
         
         // Enrich Genres
         if (detail != null && detail.getGenres() != null && !detail.getGenres().isEmpty()) {
@@ -67,6 +80,20 @@ public class MovieEnricher {
                 movie.setAgeRating(parsed);
                 updated = true;
                 log.info("Updated age rating for existing movie title={} from P to {}", movie.getTitle(), parsed);
+            }
+        }
+
+        // 3. Enrich missing banner if existing is null
+        if ((movie.getBannerPath() == null || movie.getBannerPath().isBlank())
+                && listItem != null && listItem.getBannerUrl() != null && !listItem.getBannerUrl().isBlank()) {
+            MediaUploadResult bannerResult = mediaStorage.uploadFromUrl(listItem.getBannerUrl());
+            if (bannerResult.success()) {
+                movie.setBannerPath(bannerResult.url());
+                updated = true;
+                log.info("Enriched missing banner for existing movie title={}", movie.getTitle());
+            } else {
+                movie.setBannerPath(listItem.getBannerUrl());
+                updated = true;
             }
         }
 

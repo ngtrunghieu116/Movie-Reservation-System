@@ -26,4 +26,15 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @org.springframework.data.jpa.repository.Query("SELECT t FROM Ticket t WHERE t.ticketCode = :ticketCode")
     Optional<Ticket> findByTicketCodeWithLock(@org.springframework.data.repository.query.Param("ticketCode") String ticketCode);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(t) > 0 FROM Ticket t " +
+            "WHERE t.reservation.user.id = :userId " +
+            "AND t.showtime.movie.id = :movieId " +
+            "AND t.reservation.status = :reservationStatus " +
+            "AND t.status IN :ticketStatuses")
+    boolean existsVerifiedTicketForUserAndMovie(
+            @org.springframework.data.repository.query.Param("userId") Long userId,
+            @org.springframework.data.repository.query.Param("movieId") Long movieId,
+            @org.springframework.data.repository.query.Param("reservationStatus") com.moviebooking.model.enums.ReservationStatus reservationStatus,
+            @org.springframework.data.repository.query.Param("ticketStatuses") java.util.Collection<TicketStatus> ticketStatuses);
 }
