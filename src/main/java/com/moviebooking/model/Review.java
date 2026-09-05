@@ -46,6 +46,12 @@ public class Review {
     @Builder.Default
     private ReviewStatus status = ReviewStatus.PUBLISHED;
 
+    @Column(length = 50)
+    private String source;
+
+    @Column(name = "external_author", length = 100)
+    private String externalAuthor;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

@@ -30,8 +30,14 @@ public class Article {
     @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String content;
 
-    @Column(name = "poster_url", length = 255)
+    @Column(name = "poster_url", length = 1000)
     private String posterUrl;
+
+    @Column(length = 50)
+    private String source;
+
+    @Column(name = "source_url", length = 500, unique = true)
+    private String sourceUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)

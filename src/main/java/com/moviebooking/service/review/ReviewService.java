@@ -217,7 +217,11 @@ public class ReviewService implements IReviewService {
         if (review.getUser() != null) {
             String firstName = review.getUser().getFirstName() != null ? review.getUser().getFirstName() : "";
             String lastName = review.getUser().getLastName() != null ? review.getUser().getLastName() : "";
-            fullName = (firstName + " " + lastName).trim();
+            if (!lastName.isEmpty() && !firstName.isEmpty()) {
+                fullName = (lastName + " " + firstName).trim();
+            } else {
+                fullName = (lastName + firstName).trim();
+            }
             if (fullName.isEmpty()) {
                 fullName = review.getUser().getEmail();
             }

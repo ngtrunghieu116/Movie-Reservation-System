@@ -37,14 +37,16 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             "(:search IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             " LOWER(u.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             " LOWER(u.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-            " LOWER(m.title) LIKE LOWER(CONCAT('%', :search, '%')))",
+            " LOWER(m.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            " LOWER(r.comment) LIKE LOWER(CONCAT('%', :search, '%')))",
             countQuery = "SELECT COUNT(r) FROM Review r WHERE " +
             "(:movieId IS NULL OR r.movie.id = :movieId) AND " +
             "(:status IS NULL OR r.status = :status) AND " +
             "(:search IS NULL OR LOWER(r.user.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             " LOWER(r.user.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             " LOWER(r.user.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-            " LOWER(r.movie.title) LIKE LOWER(CONCAT('%', :search, '%')))")
+            " LOWER(r.movie.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            " LOWER(r.comment) LIKE LOWER(CONCAT('%', :search, '%')))")
     Page<Review> searchReviewsForAdmin(@Param("movieId") Long movieId,
                                        @Param("status") ReviewStatus status,
                                        @Param("search") String search,
