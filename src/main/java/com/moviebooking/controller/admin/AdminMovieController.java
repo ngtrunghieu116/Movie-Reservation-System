@@ -39,7 +39,7 @@ public class AdminMovieController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<MovieResponse> createMovie(
             @Valid @RequestPart("movie") MovieRequest request,
-            @RequestPart("posterFile") MultipartFile posterFile,
+            @RequestPart(value = "posterFile", required = false) MultipartFile posterFile,
             @RequestPart(value = "bannerFile", required = false) MultipartFile bannerFile) {
         MovieResponse response = movieService.createMovie(request, posterFile, bannerFile);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

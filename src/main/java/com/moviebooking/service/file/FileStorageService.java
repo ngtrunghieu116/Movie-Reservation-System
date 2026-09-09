@@ -26,10 +26,54 @@ public class FileStorageService {
     @Value("${app.upload.article-dir:uploads/articles/}")
     private String articleDir;
 
-    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     private static final List<String> ALLOWED_CONTENT_TYPES = Arrays.asList(
-            "image/jpeg", "image/jpg", "image/png", "image/webp"
+            "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif",
+            "image/avif", "image/svg+xml", "image/bmp", "image/x-icon", "image/vnd.microsoft.icon",
+            "image/tiff", "image/heic", "image/heif", "image/jfif", "image/pjpeg"
     );
+
+    private boolean isValidImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) return false;
+        String contentType = file.getContentType();
+        if (contentType != null) {
+            String lower = contentType.toLowerCase().trim();
+            if (lower.startsWith("image/") || ALLOWED_CONTENT_TYPES.contains(lower)) {
+                return true;
+            }
+        }
+        String filename = file.getOriginalFilename();
+        if (filename != null && filename.contains(".")) {
+            String ext = filename.substring(filename.lastIndexOf(".")).toLowerCase();
+            return ext.matches("\\.(jpe?g|png|webp|gif|avif|svg|bmp|ico|tiff?|heic|heif|jfif)$");
+        }
+        return false;
+    }
+
+    private String extractExtension(MultipartFile file) {
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename != null && originalFilename.contains(".")) {
+            return originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+        String contentType = file.getContentType();
+        if (contentType != null) {
+            switch (contentType.toLowerCase().trim()) {
+                case "image/png": return ".png";
+                case "image/webp": return ".webp";
+                case "image/avif": return ".avif";
+                case "image/gif": return ".gif";
+                case "image/svg+xml": return ".svg";
+                case "image/bmp": return ".bmp";
+                case "image/x-icon":
+                case "image/vnd.microsoft.icon": return ".ico";
+                case "image/heic": return ".heic";
+                case "image/heif": return ".heif";
+                case "image/tiff": return ".tiff";
+                default: return ".jpg";
+            }
+        }
+        return ".jpg";
+    }
 
     public String storePosterFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -37,12 +81,11 @@ public class FileStorageService {
         }
 
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new RuntimeException("Kích thước file vượt quá giới hạn tối đa 5MB!");
+            throw new RuntimeException("Kích thước file vượt quá giới hạn tối đa 10MB!");
         }
 
-        String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
-            throw new RuntimeException("Định dạng file không hợp lệ! Chỉ chấp nhận ảnh (JPEG, PNG, WEBP).");
+        if (!isValidImage(file)) {
+            throw new RuntimeException("Định dạng file không hợp lệ! Vui lòng chọn file hình ảnh (JPEG, PNG, WEBP, AVIF, GIF, SVG, BMP...).");
         }
 
         try {
@@ -51,14 +94,7 @@ public class FileStorageService {
                 Files.createDirectories(uploadPath);
             }
 
-            String originalFilename = file.getOriginalFilename();
-            String fileExtension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            } else {
-                fileExtension = ".jpg";
-            }
-
+            String fileExtension = extractExtension(file);
             String newFilename = UUID.randomUUID().toString() + fileExtension;
             Path filePath = uploadPath.resolve(newFilename);
 
@@ -78,12 +114,11 @@ public class FileStorageService {
         }
 
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new RuntimeException("Kích thước file banner vượt quá giới hạn tối đa 5MB!");
+            throw new RuntimeException("Kích thước file banner vượt quá giới hạn tối đa 10MB!");
         }
 
-        String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
-            throw new RuntimeException("Định dạng file banner không hợp lệ! Chỉ chấp nhận ảnh (JPEG, PNG, WEBP).");
+        if (!isValidImage(file)) {
+            throw new RuntimeException("Định dạng file banner không hợp lệ! Vui lòng chọn file hình ảnh (JPEG, PNG, WEBP, AVIF, GIF, SVG, BMP...).");
         }
 
         try {
@@ -92,14 +127,7 @@ public class FileStorageService {
                 Files.createDirectories(uploadPath);
             }
 
-            String originalFilename = file.getOriginalFilename();
-            String fileExtension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            } else {
-                fileExtension = ".jpg";
-            }
-
+            String fileExtension = extractExtension(file);
             String newFilename = UUID.randomUUID().toString() + fileExtension;
             Path filePath = uploadPath.resolve(newFilename);
 
@@ -119,12 +147,11 @@ public class FileStorageService {
         }
 
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("Kích thước file vượt quá giới hạn tối đa 5MB!");
+            throw new IllegalArgumentException("Kích thước file vượt quá giới hạn tối đa 10MB!");
         }
 
-        String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
-            throw new IllegalArgumentException("Định dạng file không hợp lệ! Chỉ chấp nhận ảnh (JPEG, PNG, WEBP).");
+        if (!isValidImage(file)) {
+            throw new IllegalArgumentException("Định dạng file không hợp lệ! Vui lòng chọn file hình ảnh.");
         }
 
         try {
@@ -133,14 +160,7 @@ public class FileStorageService {
                 Files.createDirectories(uploadPath);
             }
 
-            String originalFilename = file.getOriginalFilename();
-            String fileExtension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            } else {
-                fileExtension = ".jpg";
-            }
-
+            String fileExtension = extractExtension(file);
             String newFilename = UUID.randomUUID().toString() + fileExtension;
             Path filePath = uploadPath.resolve(newFilename);
 
@@ -160,12 +180,11 @@ public class FileStorageService {
         }
 
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("Kích thước file vượt quá giới hạn tối đa 5MB!");
+            throw new IllegalArgumentException("Kích thước file vượt quá giới hạn tối đa 10MB!");
         }
 
-        String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
-            throw new IllegalArgumentException("Định dạng file không hợp lệ! Chỉ chấp nhận ảnh (JPEG, PNG, WEBP).");
+        if (!isValidImage(file)) {
+            throw new IllegalArgumentException("Định dạng file không hợp lệ! Vui lòng chọn file hình ảnh.");
         }
 
         try {
@@ -174,14 +193,7 @@ public class FileStorageService {
                 Files.createDirectories(uploadPath);
             }
 
-            String originalFilename = file.getOriginalFilename();
-            String fileExtension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            } else {
-                fileExtension = ".jpg";
-            }
-
+            String fileExtension = extractExtension(file);
             String newFilename = UUID.randomUUID().toString() + fileExtension;
             Path filePath = uploadPath.resolve(newFilename);
 
