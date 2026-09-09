@@ -100,13 +100,29 @@ public class MovieService implements IMovieService {
             throw new RuntimeException("Tên phim này đã tồn tại trong hệ thống!");
         }
 
-        if (posterFile == null || posterFile.isEmpty()) {
-            throw new RuntimeException("File ảnh poster là bắt buộc khi tạo mới phim!");
+        // Determine poster path
+        String posterPath = null;
+        if (posterFile != null && !posterFile.isEmpty()) {
+            posterPath = fileStorageService.storePosterFile(posterFile);
+        } else if (request.getPosterUrl() != null && !request.getPosterUrl().trim().isEmpty()) {
+            posterPath = request.getPosterUrl().trim();
+        } else if (request.getPosterPath() != null && !request.getPosterPath().trim().isEmpty()) {
+            posterPath = request.getPosterPath().trim();
+        } else {
+            throw new RuntimeException("Vui lòng tải lên file ảnh hoặc cung cấp URL ảnh Poster cho bộ phim!");
         }
 
-        // Store File
-        String posterPath = fileStorageService.storePosterFile(posterFile);
-        String bannerPath = fileStorageService.storeBannerFile(bannerFile);
+        // Determine banner path
+        String bannerPath = null;
+        if (bannerFile != null && !bannerFile.isEmpty()) {
+            bannerPath = fileStorageService.storeBannerFile(bannerFile);
+        } else if (request.getBannerUrl() != null && !request.getBannerUrl().trim().isEmpty()) {
+            bannerPath = request.getBannerUrl().trim();
+        } else if (request.getBannerPath() != null && !request.getBannerPath().trim().isEmpty()) {
+            bannerPath = request.getBannerPath().trim();
+        } else {
+            bannerPath = posterPath;
+        }
 
         // Map genres
         Set<Genre> genres = fetchGenresByIds(request.getGenreIds());
@@ -149,15 +165,24 @@ public class MovieService implements IMovieService {
             throw new RuntimeException("Tên phim này đã trùng với một bộ phim khác!");
         }
 
-        // Handle poster file update if a new file is uploaded
+        // Handle poster file or URL update
         if (posterFile != null && !posterFile.isEmpty()) {
             String posterPath = fileStorageService.storePosterFile(posterFile);
             movie.setPosterPath(posterPath);
+        } else if (request.getPosterUrl() != null && !request.getPosterUrl().trim().isEmpty()) {
+            movie.setPosterPath(request.getPosterUrl().trim());
+        } else if (request.getPosterPath() != null && !request.getPosterPath().trim().isEmpty()) {
+            movie.setPosterPath(request.getPosterPath().trim());
         }
 
+        // Handle banner file or URL update
         if (bannerFile != null && !bannerFile.isEmpty()) {
             String bannerPath = fileStorageService.storeBannerFile(bannerFile);
             movie.setBannerPath(bannerPath);
+        } else if (request.getBannerUrl() != null && !request.getBannerUrl().trim().isEmpty()) {
+            movie.setBannerPath(request.getBannerUrl().trim());
+        } else if (request.getBannerPath() != null && !request.getBannerPath().trim().isEmpty()) {
+            movie.setBannerPath(request.getBannerPath().trim());
         }
 
         // Map genres

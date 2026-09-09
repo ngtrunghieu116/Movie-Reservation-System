@@ -53,4 +53,10 @@ public class MovieRequest {
 
     @NotEmpty(message = "Phim phải thuộc ít nhất một thể loại")
     private Set<Long> genreIds;
+
+    private String posterUrl;
+    private String bannerUrl;
+    private String posterPath;
+    private String bannerPath;
 }
+
