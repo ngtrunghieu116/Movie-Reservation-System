@@ -24,7 +24,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.moviebooking.service.seat.ShowtimeSeatService;
 
@@ -230,5 +232,11 @@ public class ShowtimeService implements IShowtimeService {
         long availableSeats = totalSeats - bookedSeats;
 
         return AdminShowtimeResponse.fromEntity(showtime, bookedSeats, availableSeats);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LocalDate> getAvailableShowDates(Long movieId) {
+        return showtimeRepository.findAvailableShowDates(movieId, LocalDateTime.now());
     }
 }

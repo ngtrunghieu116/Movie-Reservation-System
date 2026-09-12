@@ -8,7 +8,9 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/showtimes")
@@ -27,5 +29,11 @@ public class PublicShowtimeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(showtimeService.searchPublicShowtimes(theaterId, roomId, movieId, fromDate, toDate, page, size));
+    }
+
+    @GetMapping("/available-dates")
+    public ResponseEntity<List<LocalDate>> getAvailableDates(
+            @RequestParam(required = false) Long movieId) {
+        return ResponseEntity.ok(showtimeService.getAvailableShowDates(movieId));
     }
 }

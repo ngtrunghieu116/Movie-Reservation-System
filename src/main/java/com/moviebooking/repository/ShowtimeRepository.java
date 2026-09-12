@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -48,4 +49,10 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
                                    @Param("fromDate") LocalDateTime fromDate,
                                    @Param("toDate") LocalDateTime toDate,
                                    Pageable pageable);
+
+    @Query("SELECT DISTINCT CAST(s.startTime AS LocalDate) FROM Showtime s " +
+           "WHERE (:movieId IS NULL OR s.movie.id = :movieId) AND s.startTime >= :now AND s.isActive = true " +
+           "ORDER BY CAST(s.startTime AS LocalDate) ASC")
+    List<LocalDate> findAvailableShowDates(@Param("movieId") Long movieId,
+                                           @Param("now") LocalDateTime now);
 }
