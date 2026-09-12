@@ -5,7 +5,9 @@ import com.moviebooking.dto.res.AdminShowtimeResponse;
 import com.moviebooking.dto.res.PublicShowtimeResponse;
 import org.springframework.data.domain.Page;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface IShowtimeService {
     AdminShowtimeResponse createShowtime(ShowtimeRequest request);
@@ -21,4 +23,6 @@ public interface IShowtimeService {
     Page<AdminShowtimeResponse> searchShowtimes(Long theaterId, Long roomId, Long movieId, LocalDateTime fromDate, LocalDateTime toDate, int page, int size);
 
     Page<PublicShowtimeResponse> searchPublicShowtimes(Long theaterId, Long roomId, Long movieId, LocalDateTime fromDate, LocalDateTime toDate, int page, int size);
+
+    List<LocalDate> getAvailableShowDates(Long movieId);
 }
