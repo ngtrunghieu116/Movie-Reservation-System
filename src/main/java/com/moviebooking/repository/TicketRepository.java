@@ -21,6 +21,68 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
     boolean existsByTicketCode(String ticketCode);
 
+    // =========================================================
+    // STATISTICS QUERIES — feature/admin-dashboard-stats
+    // =========================================================
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT COUNT(t.id) FROM Ticket t " +
+        "WHERE t.reservation.status = 'CONFIRMED' AND t.status != 'CANCELLED' " +
+        "AND t.createdAt >= :start AND t.createdAt < :end")
+    Long countTicketsSoldBetween(
+        @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+        @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT COUNT(t.id) FROM Ticket t " +
+        "WHERE t.reservation.status = 'CONFIRMED' AND t.status != 'CANCELLED'")
+    Long countTotalTicketsSold();
+
+    // Returns Object[]{java.sql.Date date, Long ticket_count}
+    @org.springframework.data.jpa.repository.Query(value =
+        "SELECT DATE(t.created_at) as stat_date, COUNT(t.id) as ticket_count " +
+        "FROM tickets t " +
+        "JOIN reservations r ON t.reservation_id = r.id " +
+        "WHERE r.status = 'CONFIRMED' AND t.status != 'CANCELLED' " +
+        "AND t.created_at >= :start AND t.created_at < :end " +
+        "GROUP BY DATE(t.created_at) " +
+        "ORDER BY stat_date ASC",
+        nativeQuery = true)
+    List<Object[]> countDailyTicketsBetween(
+        @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+        @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
+
+    // Returns Object[]{Long movieId, Long ticket_count}
+    @org.springframework.data.jpa.repository.Query(value =
+        "SELECT s.movie_id, COUNT(t.id) as ticket_count " +
+        "FROM tickets t " +
+        "JOIN showtimes s ON t.showtime_id = s.id " +
+        "JOIN reservations r ON t.reservation_id = r.id " +
+        "WHERE r.status = 'CONFIRMED' AND t.status != 'CANCELLED' " +
+        "AND (:start IS NULL OR t.created_at >= :start) " +
+        "AND (:end IS NULL OR t.created_at < :end) " +
+        "GROUP BY s.movie_id",
+        nativeQuery = true)
+    List<Object[]> countTicketsByMovieBetween(
+        @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+        @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
+
+    // Returns Object[]{Long roomId, Long ticket_count} per room
+    @org.springframework.data.jpa.repository.Query(value =
+        "SELECT rm.id, COUNT(t.id) as ticket_count " +
+        "FROM tickets t " +
+        "JOIN showtimes s ON t.showtime_id = s.id " +
+        "JOIN rooms rm ON s.room_id = rm.id " +
+        "JOIN reservations r ON t.reservation_id = r.id " +
+        "WHERE r.status = 'CONFIRMED' AND t.status != 'CANCELLED' " +
+        "AND (:start IS NULL OR t.created_at >= :start) " +
+        "AND (:end IS NULL OR t.created_at < :end) " +
+        "GROUP BY rm.id",
+        nativeQuery = true)
+    List<Object[]> countTicketsByRoomBetween(
+        @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+        @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
+
     Optional<Ticket> findByReservationIdAndSeatId(Long reservationId, Long seatId);
 
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
