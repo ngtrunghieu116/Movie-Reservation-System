@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -35,4 +36,31 @@ public interface UserRepository extends JpaRepository<User, Long> {
                            @Param("status") UserStatus status,
                            @Param("search") String search,
                            Pageable pageable);
+
+    // =========================================================
+    // STATISTICS QUERIES — feature/admin-dashboard-stats
+    // =========================================================
+
+    @Query("SELECT COUNT(u.id) FROM User u WHERE u.role = 'USER' " +
+           "AND u.createdAt >= :start AND u.createdAt < :end")
+    Long countNewUsersBetween(
+        @Param("start") java.time.LocalDateTime start,
+        @Param("end") java.time.LocalDateTime end);
+
+    @Query("SELECT COUNT(u.id) FROM User u WHERE u.role = 'USER'")
+    Long countTotalUsers();
+
+    // Returns Object[]{java.sql.Date date, Long new_users}
+    @org.springframework.data.jpa.repository.Query(value =
+        "SELECT DATE(u.created_at) as stat_date, COUNT(u.id) as new_users " +
+        "FROM users u " +
+        "WHERE u.role = 'USER' " +
+        "AND u.created_at >= :start AND u.created_at < :end " +
+        "GROUP BY DATE(u.created_at) " +
+        "ORDER BY stat_date ASC",
+        nativeQuery = true)
+    List<Object[]> countDailyNewUsersBetween(
+        @Param("start") java.time.LocalDateTime start,
+        @Param("end") java.time.LocalDateTime end);
 }
+

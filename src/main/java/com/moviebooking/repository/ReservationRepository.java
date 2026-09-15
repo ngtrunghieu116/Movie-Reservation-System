@@ -69,4 +69,100 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @org.springframework.data.repository.query.Param("endDateTime") java.time.LocalDateTime endDateTime,
             @org.springframework.data.repository.query.Param("search") String search,
             org.springframework.data.domain.Pageable pageable);
+
+    // =========================================================
+    // STATISTICS QUERIES — feature/admin-dashboard-stats
+    // =========================================================
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT COALESCE(SUM(r.totalPrice), 0) FROM Reservation r " +
+        "WHERE r.status = 'CONFIRMED' AND r.createdAt >= :start AND r.createdAt < :end")
+    java.math.BigDecimal sumRevenueBetween(
+        @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+        @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT COUNT(r.id) FROM Reservation r " +
+        "WHERE r.status = 'CONFIRMED' AND r.createdAt >= :start AND r.createdAt < :end")
+    Long countConfirmedBetween(
+        @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+        @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT COALESCE(SUM(r.totalPrice), 0) FROM Reservation r " +
+        "WHERE r.status = 'CONFIRMED'")
+    java.math.BigDecimal sumTotalRevenue();
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT COUNT(r.id) FROM Reservation r WHERE r.status = 'CONFIRMED'")
+    Long countTotalConfirmed();
+
+    // Daily revenue aggregation — returns Object[]{java.sql.Date date, BigDecimal revenue, Long bookingCount}
+    @org.springframework.data.jpa.repository.Query(value =
+        "SELECT DATE(r.created_at) as stat_date, " +
+        "COALESCE(SUM(r.total_price), 0) as revenue, " +
+        "COUNT(r.id) as booking_count " +
+        "FROM reservations r " +
+        "WHERE r.status = 'CONFIRMED' AND r.created_at >= :start AND r.created_at < :end " +
+        "GROUP BY DATE(r.created_at) " +
+        "ORDER BY stat_date ASC",
+        nativeQuery = true)
+    List<Object[]> findDailyRevenueBetween(
+        @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+        @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
+
+    // Movie revenue aggregation — returns Object[]{Long movieId, String title, String posterPath, BigDecimal revenue, Long bookingCount}
+    @org.springframework.data.jpa.repository.Query(value =
+        "SELECT m.id, m.title, m.poster_path, " +
+        "COALESCE(SUM(r.total_price), 0) as revenue, " +
+        "COUNT(r.id) as booking_count " +
+        "FROM reservations r " +
+        "JOIN showtimes s ON r.showtime_id = s.id " +
+        "JOIN movies m ON s.movie_id = m.id " +
+        "WHERE r.status = 'CONFIRMED' " +
+        "AND (:start IS NULL OR r.created_at >= :start) " +
+        "AND (:end IS NULL OR r.created_at < :end) " +
+        "GROUP BY m.id, m.title, m.poster_path " +
+        "ORDER BY revenue DESC, m.id ASC " +
+        "LIMIT :lim",
+        nativeQuery = true)
+    List<Object[]> findMovieRevenueBetween(
+        @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+        @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end,
+        @org.springframework.data.repository.query.Param("lim") int limit);
+
+    // Room performance aggregation — Object[]{Long roomId, String roomName, String roomType, Long showtimes, BigDecimal revenue}
+    @org.springframework.data.jpa.repository.Query(value =
+        "SELECT rm.id, rm.name, rm.room_type, " +
+        "COUNT(DISTINCT s.id) as showtimes_count, " +
+        "COALESCE(SUM(r.total_price), 0) as revenue " +
+        "FROM rooms rm " +
+        "LEFT JOIN showtimes s ON s.room_id = rm.id " +
+        "LEFT JOIN reservations r ON r.showtime_id = s.id AND r.status = 'CONFIRMED' " +
+        "AND (:start IS NULL OR r.created_at >= :start) " +
+        "AND (:end IS NULL OR r.created_at < :end) " +
+        "GROUP BY rm.id, rm.name, rm.room_type " +
+        "ORDER BY revenue DESC",
+        nativeQuery = true)
+    List<Object[]> findRoomPerformanceBetween(
+        @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+        @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
+
+    // Count showtimes in date range
+    @org.springframework.data.jpa.repository.Query(value =
+        "SELECT COUNT(DISTINCT s.id) FROM showtimes s " +
+        "WHERE s.start_time >= :start AND s.start_time < :end",
+        nativeQuery = true)
+    Long countShowtimesBetween(
+        @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+        @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
+
+    // Count active movies in date range (movies with at least one showtime)
+    @org.springframework.data.jpa.repository.Query(value =
+        "SELECT COUNT(DISTINCT s.movie_id) FROM showtimes s " +
+        "WHERE s.start_time >= :start AND s.start_time < :end",
+        nativeQuery = true)
+    Long countActiveMoviesBetween(
+        @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+        @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
 }
